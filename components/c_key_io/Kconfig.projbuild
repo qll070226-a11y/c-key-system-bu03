@@ -1,0 +1,57 @@
+menu "C题 门锁GPIO配置"
+
+config C_KEY_DIP_BIT0_GPIO
+    int "4位拨码 bit0 GPIO（-1禁用）"
+    range -1 48
+    default 4
+
+config C_KEY_DIP_BIT1_GPIO
+    int "4位拨码 bit1 GPIO（-1禁用）"
+    range -1 48
+    default 5
+
+config C_KEY_DIP_BIT2_GPIO
+    int "4位拨码 bit2 GPIO（-1禁用）"
+    range -1 48
+    default 6
+
+config C_KEY_DIP_BIT3_GPIO
+    int "4位拨码 bit3 GPIO（-1禁用）"
+    range -1 48
+    default 7
+
+config C_KEY_RED_LED_GPIO
+    int "闭锁红灯GPIO（-1禁用）"
+    range -1 48
+    default 15
+
+config C_KEY_GREEN_LED_GPIO
+    int "开锁绿灯GPIO（-1禁用）"
+    range -1 48
+    default 16
+
+config C_KEY_WELCOME_LED_GPIO
+    int "迎宾灯GPIO（-1禁用）"
+    range -1 48
+    default 17
+
+config C_KEY_BUZZER_GPIO
+    int "蜂鸣器驱动GPIO（-1禁用）"
+    range -1 48
+    default 8
+
+config C_KEY_OUTPUT_ACTIVE_HIGH
+    bool "LED与蜂鸣器高电平有效"
+    default y
+
+config C_KEY_DIP_DEBOUNCE_MS
+    int "拨码去抖时间(ms)"
+    range 5 500
+    default 30
+
+config C_KEY_BUZZER_PULSE_MS
+    int "进入迎宾区蜂鸣持续时间(ms)"
+    range 50 5000
+    default 500
+
+endmenu

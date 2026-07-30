@@ -1,0 +1,62 @@
+menu "C题 2.4英寸SPI TFT"
+
+config C_KEY_TFT_ENABLE
+    bool "启用LVSN-TFT-2.4显示"
+    default y
+
+if C_KEY_TFT_ENABLE
+
+choice C_KEY_TFT_CONTROLLER
+    prompt "LCD控制器"
+    default C_KEY_TFT_CONTROLLER_ILI9341
+
+config C_KEY_TFT_CONTROLLER_ILI9341
+    bool "ILI9341（2.4英寸240x320常见方案）"
+
+config C_KEY_TFT_CONTROLLER_ST7789
+    bool "ST7789"
+
+endchoice
+
+config C_KEY_TFT_MOSI_GPIO
+    int "TFT SDI/MOSI GPIO"
+    range 0 48
+    default 11
+
+config C_KEY_TFT_SCLK_GPIO
+    int "TFT CLK GPIO"
+    range 0 48
+    default 12
+
+config C_KEY_TFT_MISO_GPIO
+    int "TFT SDO/MISO GPIO（-1不连接）"
+    range -1 48
+    default 13
+
+config C_KEY_TFT_CS_GPIO
+    int "TFT CS GPIO"
+    range 0 48
+    default 10
+
+config C_KEY_TFT_DC_GPIO
+    int "TFT D/C GPIO"
+    range 0 48
+    default 9
+
+config C_KEY_TFT_BL_GPIO
+    int "TFT BLK背光GPIO（-1表示直接接电源）"
+    range -1 48
+    default 14
+
+config C_KEY_TFT_BL_ACTIVE_HIGH
+    bool "TFT背光高电平开启"
+    default y
+
+config C_KEY_TFT_CLOCK_MHZ
+    int "TFT SPI时钟(MHz)"
+    range 1 40
+    default 20
+
+endif
+
+endmenu

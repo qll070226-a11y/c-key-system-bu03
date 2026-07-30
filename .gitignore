@@ -1,0 +1,26 @@
+# ESP-IDF generated files
+build/
+managed_components/
+dependencies.lock
+sdkconfig.old
+
+# Host-test output
+tests/build/
+
+# Captured local logs and telemetry
+*.log
+!tools/testdata/*.log
+telemetry*.csv
+monitor*.txt
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local secrets and environment overrides
+.env
+.env.*
+!.env.example

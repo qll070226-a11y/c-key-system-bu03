@@ -1,0 +1,126 @@
+menu "C题 BU03-Kit 串口诊断"
+
+config BU03_UART_NUM
+    int "BU03-Kit UART控制器编号"
+    range 1 2
+    default 1
+    help
+        UART0默认保留给下载和调试日志，这里建议选择UART1。
+
+config BU03_UART_TX_GPIO
+    int "可选：ESP32-S3连接BU03 RX的TX GPIO（-1禁用）"
+    range -1 48
+    default -1
+    help
+        本项目只读取Anchor 0的UART2测距帧，默认禁用TX，不连接PA3/RX。
+        只有后续固件确实需要双向通信时，才按开发板原理图选择可用GPIO。
+
+config BU03_UART_RX_GPIO
+    int "ESP32-S3连接BU03 TX的RX GPIO"
+    range 0 48
+    default 18
+    help
+        默认GPIO18仅用于首次编译。烧录前必须按实际开发板原理图确认。
+
+config BU03_UART_BAUD_RATE
+    int "BU03-Kit串口波特率"
+    range 1200 2000000
+    default 115200
+
+config BU03_TAG_ID
+    int "Configured UWB Tag ID (UART2 does not carry ID)"
+    range 0 15
+    default 0
+    help
+        This value must match the ID configured in the only digital-key Tag.
+        The lock DIP switch selects the accepted ID and is compared with this value.
+
+config BU03_ACCEPTED_ID_DEFAULT
+    int "Accepted ID when DIP switch GPIO is disabled"
+    range 0 15
+    default 0
+
+config BU03_SIGNAL_TIMEOUT_MS
+    int "Close lock after no valid UWB frame (ms)"
+    range 100 5000
+    default 500
+
+config BU03_ENABLE_RAW_CAPTURE
+    bool "Log raw UART frames for protocol diagnosis"
+    default n
+
+config BU03_IDLE_FLUSH_MS
+    int "无换行二进制帧的空闲切帧时间(ms)"
+    range 5 1000
+    default 50
+
+config BU03_FRAME_BUFFER_SIZE
+    int "单帧采集缓冲区大小"
+    range 128 4096
+    default 1024
+
+menu "C题 双基站定位几何与标定"
+
+config C_KEY_ANCHOR0_X_MM
+    int "Anchor 0 X坐标(mm)"
+    range -300 300
+    default -240
+
+config C_KEY_ANCHOR0_Y_MM
+    int "Anchor 0 Y坐标(mm)"
+    range -300 300
+    default 0
+
+config C_KEY_ANCHOR1_X_MM
+    int "Anchor 1 X坐标(mm)"
+    range -300 300
+    default 240
+
+config C_KEY_ANCHOR1_Y_MM
+    int "Anchor 1 Y坐标(mm)"
+    range -300 300
+    default 0
+
+config C_KEY_ANCHOR0_SCALE_PPM
+    int "Anchor 0 distance scale (ppm)"
+    range 900000 1100000
+    default 1000000
+
+config C_KEY_ANCHOR1_SCALE_PPM
+    int "Anchor 1 distance scale (ppm)"
+    range 900000 1100000
+    default 1000000
+
+config C_KEY_ANCHOR0_OFFSET_MM
+    int "Anchor 0距离修正(mm)"
+    range -1000 1000
+    default 0
+
+config C_KEY_ANCHOR1_OFFSET_MM
+    int "Anchor 1距离修正(mm)"
+    range -1000 1000
+    default 0
+
+config C_KEY_DOOR_RADIUS_MM
+    int "圆柱边界半径(mm)"
+    range 0 300
+    default 300
+
+config C_KEY_FRONT_OFFSET_DEG
+    int "正前方角度修正(deg)"
+    range -180 180
+    default 0
+
+config C_KEY_FILTER_ALPHA_PERCENT
+    int "EMA滤波系数百分比"
+    range 1 100
+    default 35
+
+config C_KEY_MAX_RESIDUAL_MM
+    int "允许的最大定位残差(mm)"
+    range 10 1000
+    default 350
+
+endmenu
+
+endmenu
