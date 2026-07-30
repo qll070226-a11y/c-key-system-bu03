@@ -2,6 +2,8 @@
 
 当前工程已经打通BU03 UART2到门锁判决输出的完整软件链：串口采集、正式帧解析、双基站前向二维定位、距离滤波、ID认证、区域状态机、拨码/LED/蜂鸣器输出和2.4英寸SPI TFT实屏驱动。500 ms无合法UWB帧时自动回到安全闭锁状态。
 
+`host/`提供用于精度分析的Python桌面上位机，可同时观察原始、校正和滤波距离、二维轨迹、定点统计及线性标定结果。
+
 新队员或新的Codex会话请先阅读[HANDOFF.md](HANDOFF.md)。其中记录了实物身份、已验证功能、当前标定、未解决风险和后续工作，不能只根据本README判断作品已经验收完成。
 
 ## 默认接线
@@ -71,13 +73,14 @@ I (...) C_KEY: UWB ok=... bad=... mask=0x03 A0=... A1=... mm
 - 目标芯片：ESP32-S3。
 - 完整构建：通过。
 - 固件：`build/c_key_door.bin`。
-- 应用二进制大小：0x431D0字节，约268.5KiB。
+- 应用二进制大小：0x43540字节，约269.3KiB。
 - 首次上板通过：ESP32-S3-N16R8识别为COM21（CH343），固件已烧录并通过SHA校验，启动日志确认门锁主循环、TFT SPI和GPIO18 UWB接收串口初始化成功。
 - Anchor 0 UART2实物接收通过：约47帧/5秒，坏帧为0，有效掩码为0x03。
 - LVSN-TFT-2.4实屏通过：VCC接3.3V，ILI9341驱动下文字、颜色和方向正常。
 - 四位拨码通过：全OFF为ID 00，bit0 ON为ID 01，屏幕实时更新。
 - 闭锁红灯通过：屏幕`LOCK:CLOSED`时GPIO15红灯点亮。
 - 双基站角度仍存在明显左右不对称，尚未满足最终验收要求，详见`HANDOFF.md`。
+- 调试上位机10项测试和模拟数据界面启动通过；实物诊断帧待UWB侧重新供电后复测。
 
 ## 核心算法单元测试
 
@@ -144,6 +147,24 @@ Component config
 ~~~
 
 提取器只保留C_KEY_CSV行，校验每行字段数并生成可直接导入Excel的UTF-8 CSV。tools/testdata/monitor_example.log用于脚本回归测试。
+
+## 定位调试上位机
+
+新固件每个合法UWB帧输出一行`C_KEY_DIAG_V1`，原`C_KEY_CSV`保持不变。首次使用：
+
+~~~powershell
+cd host
+.\setup.bat
+.\run.bat
+~~~
+
+无硬件演示：
+
+~~~powershell
+.\run.bat --demo
+~~~
+
+详细操作、定点采集和CSV回放见`host/README.md`。
 
 ## 两路距离零偏标定
 

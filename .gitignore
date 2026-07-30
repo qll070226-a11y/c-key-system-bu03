@@ -24,3 +24,8 @@ Desktop.ini
 .env
 .env.*
 !.env.example
+host/.venv/
+host/output/
+host/*.spec
+__pycache__/
+*.py[cod]

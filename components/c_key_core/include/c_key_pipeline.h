@@ -31,6 +31,7 @@ typedef struct {
     bool measurement_ready;
     bool pose_valid;
     uint8_t tag_id;
+    float corrected_distances_m[C_KEY_ANCHOR_COUNT];
     float filtered_distances_m[C_KEY_ANCHOR_COUNT];
     c_key_pose_t pose;
     c_key_state_t state;

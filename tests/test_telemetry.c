@@ -34,8 +34,11 @@ static void test_pose_line(void)
         .distance_mm = {1430U, 860U, 1250U},
     };
     const c_key_pipeline_output_t output = {
+        .measurement_ready = true,
         .pose_valid = true,
         .tag_id = 5U,
+        .corrected_distances_m = {1.388f, 0.811f},
+        .filtered_distances_m = {1.401f, 0.824f},
         .pose = {
             .position = {.x_m = 0.25f, .y_m = 1.80f},
             .boundary_distance_m = 1.50f,
@@ -53,6 +56,23 @@ static void test_pose_line(void)
                   strlen("C_KEY_CSV,1234,5,5,1,3,1430,860,1250,1,")) == 0);
     CHECK(strstr(line, ",0.250,1.800,1.500,8.00,0.030,WELCOME,2") != NULL);
     CHECK(comma_count(line) == 16U);
+
+    char diagnostic[C_KEY_DIAGNOSTIC_LINE_LENGTH];
+    CHECK(c_key_diagnostic_format(&frame,
+                                  &output,
+                                  5U,
+                                  true,
+                                  1234U,
+                                  42U,
+                                  3U,
+                                  diagnostic,
+                                  sizeof(diagnostic)));
+    CHECK(strncmp(diagnostic,
+                  "C_KEY_DIAG_V1,1234,42,5,5,1,3,1,1,1430,860,",
+                  strlen("C_KEY_DIAG_V1,1234,42,5,5,1,3,1,1,1430,860,")) == 0);
+    CHECK(strstr(diagnostic,
+                 ",1388.0,811.0,1401.0,824.0,0.250,1.800,1.500,8.00,0.030,WELCOME,2,42,3") != NULL);
+    CHECK(comma_count(diagnostic) == 23U);
 }
 
 static void test_no_pose_line(void)
@@ -72,6 +92,22 @@ static void test_no_pose_line(void)
         NULL, NULL, 5U, false, 0U, line, sizeof(line)));
     CHECK(!c_key_telemetry_format(
         NULL, &output, 16U, false, 0U, line, sizeof(line)));
+
+    char diagnostic[C_KEY_DIAGNOSTIC_LINE_LENGTH];
+    CHECK(c_key_diagnostic_format(NULL,
+                                  &output,
+                                  5U,
+                                  false,
+                                  2000U,
+                                  12U,
+                                  2U,
+                                  diagnostic,
+                                  sizeof(diagnostic)));
+    CHECK(strstr(diagnostic,
+                 ",5,5,0,0,0,0,0,0,0.0,0.0,0.0,0.0,0.000,0.000,0.000,0.00,0.000,NO_KEY,1,12,2") != NULL);
+    CHECK(comma_count(diagnostic) == 23U);
+    CHECK(!c_key_diagnostic_format(
+        NULL, NULL, 5U, false, 0U, 0U, 0U, diagnostic, sizeof(diagnostic)));
 }
 
 int run_telemetry_tests(void)

@@ -137,6 +137,20 @@ static void log_pipeline_output(const c_key_pipeline_output_t *output,
     if (output == NULL) {
         return;
     }
+
+    char diagnostic[C_KEY_DIAGNOSTIC_LINE_LENGTH];
+    if (c_key_diagnostic_format(frame,
+                                output,
+                                s_accepted_id,
+                                s_link_active,
+                                timestamp_ms,
+                                s_uart2_stream.accepted_frames,
+                                s_uart2_stream.rejected_frames,
+                                diagnostic,
+                                sizeof(diagnostic))) {
+        ESP_LOGI("C_KEY_DIAG", "%s", diagnostic);
+    }
+
     if (!force && output->events == C_KEY_EVENT_NONE &&
         timestamp_ms - s_last_status_log_ms < STATUS_LOG_INTERVAL_MS) {
         return;

@@ -107,6 +107,7 @@ bool c_key_pipeline_process(c_key_pipeline_t *pipeline,
         corrected[i].distance_m =
             corrected[i].distance_m * pipeline->config.distance_scale_factors[i] +
             pipeline->config.distance_offsets_m[i];
+        output->corrected_distances_m[i] = corrected[i].distance_m;
     }
 
     const bool synchronized = c_key_measurements_ready(

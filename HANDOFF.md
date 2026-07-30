@@ -23,6 +23,10 @@
 - `LOCK:CLOSED`时红灯亮；GPIO输出链路正常。
 - PC端核心、协议、状态机和比赛场景测试已通过。
 - 固件已设置16MB Flash。
+- 固件新增每帧`C_KEY_DIAG_V1`，包含原始、校正、滤波距离及定位结果；原`C_KEY_CSV`保持兼容。
+- Python调试上位机已完成：串口、实时曲线、二维轨迹、定点统计、线性拟合、CSV记录和回放均已实现。
+- 上位机10项核心测试、模拟数据启动和1440x900截图检查通过。
+- 诊断固件已烧录到ESP32 COM21并通过Flash校验。
 
 尚未完成或尚未验收：
 
@@ -33,6 +37,7 @@
 - 最终装箱后的距离、角度和正前方零点需要重新标定。
 - 双基站角度存在明显左右不对称，当前不能宣称满足角度指标。
 - 完整动态进入/离开、ID失配、掉线、重启和30分钟老化测试未完成。
+- 烧录后检查时UWB侧未出帧，日志为`bytes=0 uart2_ok=0`；待Tag和两Anchor供电后复测实物诊断行。
 
 ## 3. 关键硬件身份
 
@@ -92,6 +97,7 @@ components/c_key_io/            拨码、LED和蜂鸣器GPIO
 components/c_key_tft/           ILI9341/ST7789 SPI TFT驱动
 tests/                          PC端严格警告单元与比赛场景测试
 tools/                          标定、遥测提取和示例数据
+host/                           Python定位诊断上位机、测试和串口检查工具
 docs/                           硬件、协议、测试和参考资料
 ```
 
@@ -104,6 +110,9 @@ docs/                           硬件、协议、测试和参考资料
 .\build_idf.bat
 .\flash_idf.bat COM21
 .\flash_monitor_idf.bat COM21
+cd host
+.\setup.bat
+.\run.bat
 ```
 
 COM21仅为历史值，应替换为当前ESP32端口。监视器中按`Ctrl+]`退出。
@@ -113,15 +122,16 @@ COM21仅为历史值，应替换为当前ESP32端口。监视器中按`Ctrl+]`�
 1. 阅读`docs/HARDWARE.md`，核对实物每根线和电源极性。
 2. 备份三块BU03的版本、配置和设备信息，不修改射频配置。
 3. 运行PC测试和ESP-IDF构建，建立新队友电脑上的可复现基线。
-4. 通过USB供电复测拨码ID失配、红绿迎宾灯和UWB掉线闭锁。
-5. 确认蜂鸣器扩展板带驱动管后再接GPIO8。
-6. 完成正式电源，再做抬高UWB的左右角度诊断。
-7. 最终固定机械结构后才进行最终距离与角度标定。
+4. 给Tag和两Anchor供电，在`host`目录运行`check_serial.bat COM21`确认诊断帧。
+5. 使用上位机复测拨码ID失配、红绿迎宾灯和UWB掉线闭锁。
+6. 确认蜂鸣器扩展板带驱动管后再接GPIO8。
+7. 完成正式电源，再用上位机对比贴地与抬高条件。
+8. 最终固定机械结构后才进行最终距离与角度标定。
 
 ## 9. 资料入口
 
 - [硬件与接线](docs/HARDWARE.md)
 - [BU03串口协议](docs/BU03_PROTOCOL.md)
 - [标定与验收](docs/CALIBRATION_AND_ACCEPTANCE.md)
+- [调试上位机](host/README.md)
 - [原始题目和厂家规格书](docs/reference/README.md)
-
