@@ -42,6 +42,17 @@ typedef struct {
     bool ema_initialized;
 } c_key_distance_filter_t;
 
+typedef struct {
+    float samples[C_KEY_FILTER_WINDOW];
+    size_t count;
+    size_t next;
+    float filtered_deg;
+    float stationary_alpha;
+    float moving_alpha;
+    float motion_threshold_deg;
+    bool initialized;
+} c_key_angle_filter_t;
+
 typedef enum {
     C_KEY_STATE_NO_KEY = 0,
     C_KEY_STATE_INVALID_ID,
@@ -113,6 +124,17 @@ bool c_key_distance_filter_push(c_key_distance_filter_t *filter,
                                 float minimum_m,
                                 float maximum_m,
                                 float *filtered_distance_m);
+
+void c_key_angle_filter_init(c_key_angle_filter_t *filter,
+                             float stationary_alpha,
+                             float moving_alpha,
+                             float motion_threshold_deg);
+
+void c_key_angle_filter_reset(c_key_angle_filter_t *filter);
+
+bool c_key_angle_filter_push(c_key_angle_filter_t *filter,
+                             float raw_angle_deg,
+                             float *filtered_angle_deg);
 
 c_key_thresholds_t c_key_default_thresholds(void);
 

@@ -2,9 +2,11 @@
 
 #include <ctype.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "c_key_tft_zh_font.h"
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
 #include "esp_heap_caps.h"
@@ -18,7 +20,6 @@
 #define TFT_WIDTH 320
 #define TFT_HEIGHT 240
 #define TFT_BAND_HEIGHT 28
-#define TFT_SCALE 2
 #define TFT_GLYPH_WIDTH 5
 #define TFT_GLYPH_HEIGHT 7
 
@@ -203,6 +204,7 @@ static esp_err_t send_init_sequence(const lcd_init_command_t *sequence,
     return ESP_OK;
 }
 
+#ifdef CONFIG_C_KEY_TFT_CONTROLLER_ILI9341
 static esp_err_t init_ili9341(void)
 {
     static const lcd_init_command_t sequence[] = {
@@ -237,7 +239,9 @@ static esp_err_t init_ili9341(void)
     return send_init_sequence(sequence,
                               sizeof(sequence) / sizeof(sequence[0]));
 }
+#endif
 
+#ifdef CONFIG_C_KEY_TFT_CONTROLLER_ST7789
 static esp_err_t init_st7789(void)
 {
     static const lcd_init_command_t sequence[] = {
@@ -252,6 +256,7 @@ static esp_err_t init_st7789(void)
     return send_init_sequence(sequence,
                               sizeof(sequence) / sizeof(sequence[0]));
 }
+#endif
 
 static void log_controller_id(void)
 {
@@ -400,10 +405,49 @@ static void fill_band(uint16_t color)
     }
 }
 
-static void draw_character(char value,
-                           int x_origin,
-                           int y_origin,
-                           uint16_t color)
+static void draw_global_pixel(int x,
+                              int y,
+                              int band_y,
+                              int band_height,
+                              uint16_t color)
+{
+    if (x < 0 || x >= TFT_WIDTH || y < band_y ||
+        y >= band_y + band_height) {
+        return;
+    }
+    put_color(s_band,
+              (size_t)(y - band_y) * TFT_WIDTH + (size_t)x,
+              color);
+}
+
+static void draw_global_rect(int x,
+                             int y,
+                             int width,
+                             int height,
+                             int band_y,
+                             int band_height,
+                             uint16_t color)
+{
+    const int x_start = x < 0 ? 0 : x;
+    const int x_end = x + width > TFT_WIDTH ? TFT_WIDTH : x + width;
+    const int y_start = y < band_y ? band_y : y;
+    const int y_end = y + height > band_y + band_height
+                          ? band_y + band_height
+                          : y + height;
+    for (int pixel_y = y_start; pixel_y < y_end; ++pixel_y) {
+        for (int pixel_x = x_start; pixel_x < x_end; ++pixel_x) {
+            draw_global_pixel(pixel_x, pixel_y, band_y, band_height, color);
+        }
+    }
+}
+
+static void draw_ascii_global(char value,
+                              int x_origin,
+                              int y_origin,
+                              int scale,
+                              int band_y,
+                              int band_height,
+                              uint16_t color)
 {
     const uint8_t *glyph = glyph_for(value);
     for (int x = 0; x < TFT_GLYPH_WIDTH; ++x) {
@@ -411,43 +455,260 @@ static void draw_character(char value,
             if ((glyph[x] & (1U << y)) == 0U) {
                 continue;
             }
-            for (int sx = 0; sx < TFT_SCALE; ++sx) {
-                for (int sy = 0; sy < TFT_SCALE; ++sy) {
-                    const int pixel_x = x_origin + x * TFT_SCALE + sx;
-                    const int pixel_y = y_origin + y * TFT_SCALE + sy;
-                    if (pixel_x >= 0 && pixel_x < TFT_WIDTH &&
-                        pixel_y >= 0 && pixel_y < TFT_BAND_HEIGHT) {
-                        put_color(s_band,
-                                  (size_t)pixel_y * TFT_WIDTH +
-                                      (size_t)pixel_x,
-                                  color);
-                    }
+            for (int sx = 0; sx < scale; ++sx) {
+                for (int sy = 0; sy < scale; ++sy) {
+                    draw_global_pixel(x_origin + x * scale + sx,
+                                      y_origin + y * scale + sy,
+                                      band_y,
+                                      band_height,
+                                      color);
                 }
             }
         }
     }
 }
 
-static esp_err_t clear_screen(void)
+static void draw_chinese_global(uint32_t codepoint,
+                                int x_origin,
+                                int y_origin,
+                                int band_y,
+                                int band_height,
+                                uint16_t color)
 {
-    fill_band(0x0000U);
-    for (int y = 0; y < TFT_HEIGHT; y += TFT_BAND_HEIGHT) {
-        const int height =
-            y + TFT_BAND_HEIGHT <= TFT_HEIGHT
-                ? TFT_BAND_HEIGHT
-                : TFT_HEIGHT - y;
-        esp_err_t result = lcd_set_window(
-            0, (uint16_t)y, TFT_WIDTH - 1, (uint16_t)(y + height - 1));
-        if (result != ESP_OK) {
-            return result;
-        }
-        result = lcd_write_data(s_band,
-                                (size_t)TFT_WIDTH * (size_t)height * 2U);
-        if (result != ESP_OK) {
-            return result;
+    const uint8_t *glyph = c_key_tft_zh_glyph(codepoint);
+    if (glyph == NULL) {
+        return;
+    }
+    for (int y = 0; y < 16; ++y) {
+        for (int x = 0; x < 16; ++x) {
+            const uint8_t bits = glyph[y * 2 + x / 8];
+            if ((bits & (1U << (7 - x % 8))) != 0U) {
+                draw_global_pixel(x_origin + x,
+                                  y_origin + y,
+                                  band_y,
+                                  band_height,
+                                  color);
+            }
         }
     }
-    return ESP_OK;
+}
+
+static uint32_t utf8_next(const char **text)
+{
+    const unsigned char *bytes = (const unsigned char *)*text;
+    if (bytes[0] < 0x80U) {
+        *text += 1;
+        return bytes[0];
+    }
+    if ((bytes[0] & 0xE0U) == 0xC0U && bytes[1] != 0U) {
+        *text += 2;
+        return ((uint32_t)(bytes[0] & 0x1FU) << 6U) |
+               (uint32_t)(bytes[1] & 0x3FU);
+    }
+    if ((bytes[0] & 0xF0U) == 0xE0U && bytes[1] != 0U && bytes[2] != 0U) {
+        *text += 3;
+        return ((uint32_t)(bytes[0] & 0x0FU) << 12U) |
+               ((uint32_t)(bytes[1] & 0x3FU) << 6U) |
+               (uint32_t)(bytes[2] & 0x3FU);
+    }
+    *text += 1;
+    return '?';
+}
+
+static int dashboard_text_width(const char *text, int ascii_scale)
+{
+    int width = 0;
+    while (text != NULL && *text != '\0') {
+        const uint32_t codepoint = utf8_next(&text);
+        width += codepoint < 0x80U
+                     ? (TFT_GLYPH_WIDTH + 1) * ascii_scale
+                     : 17;
+    }
+    return width > 0 ? width - 1 : 0;
+}
+
+static void draw_dashboard_text(const char *text,
+                                int x,
+                                int y,
+                                int ascii_scale,
+                                int band_y,
+                                int band_height,
+                                uint16_t color)
+{
+    while (text != NULL && *text != '\0') {
+        const uint32_t codepoint = utf8_next(&text);
+        if (codepoint < 0x80U) {
+            draw_ascii_global((char)codepoint,
+                              x,
+                              y + (16 - TFT_GLYPH_HEIGHT * ascii_scale) / 2,
+                              ascii_scale,
+                              band_y,
+                              band_height,
+                              color);
+            x += (TFT_GLYPH_WIDTH + 1) * ascii_scale;
+        } else {
+            draw_chinese_global(codepoint,
+                                x,
+                                y,
+                                band_y,
+                                band_height,
+                                color);
+            x += 17;
+        }
+    }
+}
+
+#define COLOR_BACKGROUND 0xFFFFU
+#define COLOR_HEADER 0x780FU
+#define COLOR_FOOTER 0x2104U
+#define COLOR_TEXT 0x18E3U
+#define COLOR_MUTED 0x6B4DU
+#define COLOR_LINE 0xD69AU
+#define COLOR_WHITE 0xFFFFU
+#define COLOR_GREEN 0x0640U
+#define COLOR_RED 0xB800U
+#define COLOR_ORANGE 0xFD20U
+#define COLOR_BLUE 0x04DFU
+
+static const char *dashboard_zone_name(c_key_state_t state)
+{
+    switch (state) {
+    case C_KEY_STATE_NO_KEY:
+        return "无钥匙";
+    case C_KEY_STATE_INVALID_ID:
+        return "身份无效";
+    case C_KEY_STATE_OUT_OF_ANGLE:
+        return "角度超限";
+    case C_KEY_STATE_SENSING:
+        return "感应区";
+    case C_KEY_STATE_WELCOME:
+        return "迎宾区";
+    case C_KEY_STATE_UNLOCKED:
+        return "开锁区";
+    case C_KEY_STATE_FAULT:
+    default:
+        return "系统故障";
+    }
+}
+
+static uint16_t dashboard_zone_color(c_key_state_t state)
+{
+    switch (state) {
+    case C_KEY_STATE_UNLOCKED:
+        return COLOR_GREEN;
+    case C_KEY_STATE_WELCOME:
+        return COLOR_ORANGE;
+    case C_KEY_STATE_SENSING:
+        return COLOR_BLUE;
+    default:
+        return COLOR_RED;
+    }
+}
+
+static void draw_dashboard_band(const c_key_display_frame_t *frame,
+                                int band_y,
+                                int band_height)
+{
+    fill_band(COLOR_BACKGROUND);
+    draw_global_rect(0, 0, TFT_WIDTH, 30,
+                     band_y, band_height, COLOR_HEADER);
+    draw_global_rect(0, 86, TFT_WIDTH, 1,
+                     band_y, band_height, COLOR_LINE);
+    draw_global_rect(0, 144, TFT_WIDTH, 1,
+                     band_y, band_height, COLOR_LINE);
+    draw_global_rect(0, 206, TFT_WIDTH, 34,
+                     band_y, band_height, COLOR_FOOTER);
+
+    const char *title = "数字钥匙实验系统";
+    draw_dashboard_text(title,
+                        (TFT_WIDTH - dashboard_text_width(title, 1)) / 2,
+                        7,
+                        1,
+                        band_y,
+                        band_height,
+                        COLOR_WHITE);
+
+    char value[20];
+    draw_dashboard_text("钥匙ID", 10, 38, 1,
+                        band_y, band_height, COLOR_TEXT);
+    if (frame->key_present) {
+        snprintf(value, sizeof(value), "%04u", frame->tag_id);
+    } else {
+        snprintf(value, sizeof(value), "----");
+    }
+    draw_dashboard_text(value, 78, 38, 2,
+                        band_y, band_height, COLOR_BLUE);
+
+    draw_dashboard_text("门锁ID", 168, 38, 1,
+                        band_y, band_height, COLOR_TEXT);
+    snprintf(value, sizeof(value), "%04u", frame->accepted_id);
+    draw_dashboard_text(value, 238, 38, 2,
+                        band_y, band_height, COLOR_BLUE);
+
+    draw_dashboard_text("身份认证", 10, 65, 1,
+                        band_y, band_height, COLOR_TEXT);
+    const char *authentication = !frame->key_present
+                                     ? "无钥匙"
+                                     : (frame->authenticated
+                                            ? "匹配成功"
+                                            : "匹配失败");
+    draw_dashboard_text(authentication, 196, 65, 1,
+                        band_y, band_height,
+                        frame->authenticated ? COLOR_GREEN : COLOR_RED);
+
+    draw_dashboard_text("径向距离", 10, 94, 1,
+                        band_y, band_height, COLOR_MUTED);
+    draw_dashboard_text("方位角", 174, 94, 1,
+                        band_y, band_height, COLOR_MUTED);
+    if (frame->pose_valid) {
+        snprintf(value, sizeof(value), "%.2f m", frame->distance_m);
+    } else {
+        snprintf(value, sizeof(value), "--.-- m");
+    }
+    draw_dashboard_text(value, 10, 118, 2,
+                        band_y, band_height, COLOR_TEXT);
+    if (frame->pose_valid) {
+        snprintf(value, sizeof(value), "%+.1f deg", frame->angle_deg);
+    } else {
+        snprintf(value, sizeof(value), "--.- deg");
+    }
+    draw_dashboard_text(value, 174, 118, 2,
+                        band_y, band_height, COLOR_TEXT);
+
+    draw_dashboard_text("当前区域", 10, 153, 1,
+                        band_y, band_height, COLOR_TEXT);
+    draw_dashboard_text(dashboard_zone_name(frame->state), 196, 153, 1,
+                        band_y, band_height,
+                        dashboard_zone_color(frame->state));
+
+    draw_dashboard_text("门锁状态", 10, 181, 1,
+                        band_y, band_height, COLOR_TEXT);
+    draw_dashboard_text(frame->unlocked_output ? "开启" : "关闭",
+                        230,
+                        181,
+                        1,
+                        band_y,
+                        band_height,
+                        frame->unlocked_output ? COLOR_GREEN : COLOR_RED);
+
+    draw_dashboard_text("通信", 8, 215, 1,
+                        band_y, band_height, COLOR_WHITE);
+    draw_dashboard_text(frame->uwb_link_ok ? "正常" : "丢失",
+                        47,
+                        215,
+                        1,
+                        band_y,
+                        band_height,
+                        frame->uwb_link_ok ? COLOR_GREEN : COLOR_RED);
+    draw_dashboard_text("迎宾灯", 160, 215, 1,
+                        band_y, band_height, COLOR_WHITE);
+    draw_dashboard_text(frame->welcome_output ? "开" : "关",
+                        218,
+                        215,
+                        1,
+                        band_y,
+                        band_height,
+                        frame->welcome_output ? COLOR_ORANGE : COLOR_WHITE);
 }
 
 esp_err_t c_key_tft_render(const c_key_display_frame_t *frame)
@@ -456,50 +717,21 @@ esp_err_t c_key_tft_render(const c_key_display_frame_t *frame)
         return ESP_ERR_INVALID_STATE;
     }
 
-    static bool first_render = true;
-    if (first_render) {
-        esp_err_t result = clear_screen();
-        if (result != ESP_OK) {
-            return result;
-        }
-        first_render = false;
-    }
-
-    static const uint16_t line_colors[C_KEY_DISPLAY_LINE_COUNT] = {
-        0x07FFU,
-        0xFFFFU,
-        0xBDF7U,
-        0xFFE0U,
-        0x07E0U,
-        0xF81FU,
-    };
-    const size_t maximum_characters =
-        (TFT_WIDTH - 8U) / ((TFT_GLYPH_WIDTH + 1U) * TFT_SCALE);
-
-    for (size_t line_index = 0;
-         line_index < C_KEY_DISPLAY_LINE_COUNT;
-         ++line_index) {
-        fill_band(0x0000U);
-        const char *text = frame->lines[line_index];
-        const size_t length = strnlen(text, C_KEY_DISPLAY_LINE_LENGTH);
-        const size_t visible =
-            length < maximum_characters ? length : maximum_characters;
-        for (size_t character = 0; character < visible; ++character) {
-            draw_character(text[character],
-                           4 + (int)character *
-                                   (TFT_GLYPH_WIDTH + 1) * TFT_SCALE,
-                           7,
-                           line_colors[line_index]);
-        }
-
-        const uint16_t y_start = (uint16_t)(4U + line_index * 38U);
+    for (int band_y = 0; band_y < TFT_HEIGHT; band_y += TFT_BAND_HEIGHT) {
+        const int band_height = band_y + TFT_BAND_HEIGHT <= TFT_HEIGHT
+                                    ? TFT_BAND_HEIGHT
+                                    : TFT_HEIGHT - band_y;
+        draw_dashboard_band(frame, band_y, band_height);
         esp_err_t result = lcd_set_window(
-            0, y_start, TFT_WIDTH - 1, y_start + TFT_BAND_HEIGHT - 1);
+            0,
+            (uint16_t)band_y,
+            TFT_WIDTH - 1,
+            (uint16_t)(band_y + band_height - 1));
         if (result != ESP_OK) {
             return result;
         }
         result = lcd_write_data(s_band,
-                                TFT_WIDTH * TFT_BAND_HEIGHT * 2U);
+                                (size_t)TFT_WIDTH * (size_t)band_height * 2U);
         if (result != ESP_OK) {
             return result;
         }

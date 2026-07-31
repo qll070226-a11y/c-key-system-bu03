@@ -41,8 +41,14 @@ config C_KEY_BUZZER_GPIO
     default 8
 
 config C_KEY_OUTPUT_ACTIVE_HIGH
-    bool "LED与蜂鸣器高电平有效"
+    bool "LED高电平有效"
     default y
+
+config C_KEY_BUZZER_ACTIVE_LOW
+    bool "蜂鸣器低电平触发"
+    default y
+    help
+        启用后GPIO8输出低电平时蜂鸣器响，高电平时关闭。
 
 config C_KEY_DIP_DEBOUNCE_MS
     int "拨码去抖时间(ms)"

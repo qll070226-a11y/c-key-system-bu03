@@ -10,6 +10,7 @@ static int failures;
 int run_pipeline_tests(void);
 int run_display_tests(void);
 int run_bu03_uart2_tests(void);
+int run_bu03_twr_usb_tests(void);
 int run_bu03_bridge_tests(void);
 int run_contest_scenario_tests(void);
 int run_telemetry_tests(void);
@@ -112,6 +113,34 @@ static void test_filter_and_freshness(void)
     NEAR(output, 2.01f, 0.03f);
 }
 
+static void test_adaptive_angle_filter(void)
+{
+    c_key_angle_filter_t filter;
+    c_key_angle_filter_init(&filter, 0.15f, 0.60f, 3.0f);
+
+    const float stationary_samples[] = {0.0f, 1.8f, -1.6f, 1.2f, -1.0f, 1.4f, -1.2f};
+    float output = 0.0f;
+    for (size_t i = 0; i < sizeof(stationary_samples) / sizeof(stationary_samples[0]); ++i) {
+        CHECK(c_key_angle_filter_push(&filter, stationary_samples[i], &output));
+    }
+    CHECK(fabsf(output) < 0.5f);
+
+    for (size_t i = 0; i < 5U; ++i) {
+        CHECK(c_key_angle_filter_push(&filter, 20.0f, &output));
+    }
+    CHECK(output > 18.0f);
+    CHECK(output <= 20.0f);
+
+    c_key_angle_filter_reset(&filter);
+    CHECK(c_key_angle_filter_push(&filter, 179.0f, &output));
+    CHECK(c_key_angle_filter_push(&filter, -179.0f, &output));
+    CHECK(fabsf(fabsf(output) - 180.0f) < 1.0f);
+
+    c_key_angle_filter_reset(&filter);
+    CHECK(c_key_angle_filter_push(&filter, -35.0f, &output));
+    NEAR(output, -35.0f, 1.0e-5f);
+}
+
 static c_key_state_input_t input_at(float distance_m, float angle_deg)
 {
     return (c_key_state_input_t){true, true, 5, 5, distance_m, angle_deg};
@@ -160,10 +189,12 @@ int main(void)
     test_two_anchor_location();
     test_pose();
     test_filter_and_freshness();
+    test_adaptive_angle_filter();
     test_state_machine();
     failures += run_pipeline_tests();
     failures += run_display_tests();
     failures += run_bu03_uart2_tests();
+    failures += run_bu03_twr_usb_tests();
     failures += run_bu03_bridge_tests();
     failures += run_contest_scenario_tests();
     failures += run_telemetry_tests();

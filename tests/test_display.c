@@ -39,6 +39,15 @@ static void test_valid_welcome_frame(void)
     CHECK(strcmp(frame.lines[3], "ZONE:WELCOME") == 0);
     CHECK(strcmp(frame.lines[4], "LOCK:CLOSED WELCOME:ON") == 0);
     CHECK(strstr(frame.lines[5], "UWB:OK") != NULL);
+    CHECK(frame.tag_id == 5U);
+    CHECK(frame.accepted_id == 5U);
+    CHECK(frame.key_present);
+    CHECK(frame.authenticated);
+    CHECK(frame.pose_valid);
+    CHECK(frame.uwb_link_ok);
+    CHECK(frame.state == C_KEY_STATE_WELCOME);
+    CHECK(frame.welcome_output);
+    CHECK(!frame.unlocked_output);
 }
 
 static void test_invalid_frame_without_pose(void)
@@ -55,6 +64,10 @@ static void test_invalid_frame_without_pose(void)
     CHECK(strcmp(frame.lines[1], "D: --.--m A: --.-deg") == 0);
     CHECK(strcmp(frame.lines[3], "ZONE:INVALID ID") == 0);
     CHECK(strcmp(frame.lines[5], "UWB:LOST RES:--.--") == 0);
+    CHECK(frame.key_present);
+    CHECK(!frame.authenticated);
+    CHECK(!frame.pose_valid);
+    CHECK(!frame.uwb_link_ok);
 }
 
 static void test_arguments_and_termination(void)
@@ -66,6 +79,8 @@ static void test_arguments_and_termination(void)
     CHECK(!c_key_display_format(&pipeline, 16U, true, &frame));
     CHECK(!c_key_display_format(&pipeline, 0U, true, NULL));
     CHECK(c_key_display_format(&pipeline, 0U, true, &frame));
+    CHECK(strcmp(frame.lines[0], "KEY:-- LOCK:00 NO KEY") == 0);
+    CHECK(!frame.key_present);
     for (size_t i = 0; i < C_KEY_DISPLAY_LINE_COUNT; ++i) {
         CHECK(frame.lines[i][C_KEY_DISPLAY_LINE_LENGTH - 1U] == '\0');
     }

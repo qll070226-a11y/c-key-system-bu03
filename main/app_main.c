@@ -6,6 +6,7 @@
 
 #include "bu03_uart2.h"
 #include "c_key_bu03_bridge.h"
+#include "c_key_bu03_usb.h"
 #include "c_key_display.h"
 #include "c_key_io.h"
 #include "c_key_pipeline.h"
@@ -70,6 +71,12 @@ static c_key_pipeline_config_t make_pipeline_config(void)
         .door_radius_m = (float)CONFIG_C_KEY_DOOR_RADIUS_MM * 0.001f,
         .front_angle_offset_deg = (float)CONFIG_C_KEY_FRONT_OFFSET_DEG,
         .filter_alpha = (float)CONFIG_C_KEY_FILTER_ALPHA_PERCENT * 0.01f,
+        .angle_filter_stationary_alpha =
+            (float)CONFIG_C_KEY_ANGLE_FILTER_STATIONARY_ALPHA_PERCENT * 0.01f,
+        .angle_filter_moving_alpha =
+            (float)CONFIG_C_KEY_ANGLE_FILTER_MOVING_ALPHA_PERCENT * 0.01f,
+        .angle_filter_motion_threshold_deg =
+            (float)CONFIG_C_KEY_ANGLE_FILTER_MOTION_THRESHOLD_DEG,
         .minimum_distance_m = 0.10f,
         .maximum_distance_m = 20.0f,
         .maximum_residual_m = (float)CONFIG_C_KEY_MAX_RESIDUAL_MM * 0.001f,
@@ -218,21 +225,28 @@ static void handle_uart2_byte(uint8_t value, uint32_t timestamp_ms)
         return;
     }
 
+    uint8_t received_tag_id = 0U;
+    const bool identity_valid = c_key_bu03_usb_get_recent_tag_id(
+        timestamp_ms,
+        CONFIG_C_KEY_BU03_ID_TIMEOUT_MS,
+        &received_tag_id);
+
     c_key_pipeline_input_t input;
     if (!c_key_input_from_bu03_uart2(
             &frame,
-            CONFIG_BU03_TAG_ID,
+            received_tag_id,
             timestamp_ms,
             (uint16_t)s_uart2_stream.accepted_frames,
             &input)) {
         c_key_io_force_safe(&s_io);
         return;
     }
+    input.signal_present = input.signal_present && identity_valid;
 
     const bool link_was_active = s_link_active;
-    s_link_active = true;
+    s_link_active = input.signal_present;
     s_last_valid_frame_ms = timestamp_ms;
-    apply_pipeline_input(&input, &frame, !link_was_active);
+    apply_pipeline_input(&input, &frame, link_was_active != s_link_active);
 }
 
 static void handle_link_timeout(uint32_t timestamp_ms)
@@ -245,7 +259,7 @@ static void handle_link_timeout(uint32_t timestamp_ms)
     s_link_active = false;
     c_key_pipeline_input_t input = {
         .signal_present = false,
-        .tag_id = CONFIG_BU03_TAG_ID,
+        .tag_id = 0U,
         .now_ms = timestamp_ms,
     };
     apply_pipeline_input(&input, NULL, true);
@@ -331,10 +345,15 @@ void app_main(void)
                  esp_err_to_name(tft_init_result));
     }
     init_bu03_uart();
+    const esp_err_t usb_id_result = c_key_bu03_usb_start();
+    if (usb_id_result != ESP_OK) {
+        ESP_LOGE(TAG,
+                 "BU03 USB identity receiver failed: %s; lock remains closed",
+                 esp_err_to_name(usb_id_result));
+    }
 
     ESP_LOGI(TAG,
-             "door controller ready: key ID=%d accepted ID=%u raw_capture=%d",
-             CONFIG_BU03_TAG_ID,
+             "door controller ready: accepted ID=%u raw_capture=%d",
              s_accepted_id,
              BU03_RAW_CAPTURE_ENABLED);
     ESP_LOGI(TAG,
@@ -370,15 +389,22 @@ void app_main(void)
         handle_link_timeout(current_ms);
 
         if (current_ms - last_stats_ms >= STATS_LOG_INTERVAL_MS) {
+            c_key_bu03_usb_stats_t usb_stats;
+            c_key_bu03_usb_get_stats(&usb_stats);
             ESP_LOGI(TAG,
                      "stats bytes=%" PRIu32 " uart2_ok=%" PRIu32
                      " uart2_bad=%" PRIu32 " raw_frames=%" PRIu32
-                     " overflows=%" PRIu32,
+                     " overflows=%" PRIu32 " usb_connected=%d"
+                     " usb_id_ok=%d usb_ok=%" PRIu32 " usb_bad=%" PRIu32,
                      s_total_bytes,
                      s_uart2_stream.accepted_frames,
                      s_uart2_stream.rejected_frames,
                      s_raw_frame_count,
-                     s_overflow_count);
+                     s_overflow_count,
+                     usb_stats.device_connected,
+                     usb_stats.tag_id_valid,
+                     usb_stats.accepted_frames,
+                     usb_stats.rejected_frames);
             last_stats_ms = current_ms;
         }
     }

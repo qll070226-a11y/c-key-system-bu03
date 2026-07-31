@@ -225,6 +225,85 @@ bool c_key_distance_filter_push(c_key_distance_filter_t *filter,
     return true;
 }
 
+void c_key_angle_filter_init(c_key_angle_filter_t *filter,
+                             float stationary_alpha,
+                             float moving_alpha,
+                             float motion_threshold_deg)
+{
+    if (filter == NULL) {
+        return;
+    }
+
+    memset(filter, 0, sizeof(*filter));
+    filter->stationary_alpha =
+        isfinite(stationary_alpha) ? fminf(1.0f, fmaxf(0.01f, stationary_alpha)) : 0.15f;
+    filter->moving_alpha =
+        isfinite(moving_alpha) ? fminf(1.0f, fmaxf(filter->stationary_alpha, moving_alpha)) : 0.60f;
+    filter->motion_threshold_deg =
+        isfinite(motion_threshold_deg) ? fmaxf(0.1f, motion_threshold_deg) : 3.0f;
+}
+
+void c_key_angle_filter_reset(c_key_angle_filter_t *filter)
+{
+    if (filter == NULL) {
+        return;
+    }
+
+    filter->count = 0U;
+    filter->next = 0U;
+    filter->filtered_deg = 0.0f;
+    filter->initialized = false;
+}
+
+bool c_key_angle_filter_push(c_key_angle_filter_t *filter,
+                             float raw_angle_deg,
+                             float *filtered_angle_deg)
+{
+    if (filter == NULL || filtered_angle_deg == NULL || !isfinite(raw_angle_deg)) {
+        return false;
+    }
+
+    raw_angle_deg = normalize_angle(raw_angle_deg);
+    if (!filter->initialized) {
+        filter->samples[0] = raw_angle_deg;
+        filter->count = 1U;
+        filter->next = 1U;
+        filter->filtered_deg = raw_angle_deg;
+        filter->initialized = true;
+        *filtered_angle_deg = raw_angle_deg;
+        return true;
+    }
+
+    filter->samples[filter->next] = raw_angle_deg;
+    filter->next = (filter->next + 1U) % C_KEY_FILTER_WINDOW;
+    if (filter->count < C_KEY_FILTER_WINDOW) {
+        ++filter->count;
+    }
+
+    float unwrapped[C_KEY_FILTER_WINDOW];
+    for (size_t i = 0; i < filter->count; ++i) {
+        unwrapped[i] = filter->filtered_deg +
+                       normalize_angle(filter->samples[i] - filter->filtered_deg);
+    }
+    sort_values(unwrapped, filter->count);
+
+    float median;
+    if ((filter->count & 1U) != 0U) {
+        median = unwrapped[filter->count / 2U];
+    } else {
+        median = 0.5f * (unwrapped[filter->count / 2U - 1U] +
+                         unwrapped[filter->count / 2U]);
+    }
+
+    const float error_deg = normalize_angle(median - filter->filtered_deg);
+    const float alpha = fabsf(error_deg) >= filter->motion_threshold_deg
+                            ? filter->moving_alpha
+                            : filter->stationary_alpha;
+    filter->filtered_deg = normalize_angle(filter->filtered_deg + alpha * error_deg);
+    *filtered_angle_deg = filter->filtered_deg;
+    return true;
+}
+
 c_key_thresholds_t c_key_default_thresholds(void)
 {
     return (c_key_thresholds_t){

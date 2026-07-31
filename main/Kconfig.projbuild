@@ -27,14 +27,6 @@ config BU03_UART_BAUD_RATE
     range 1200 2000000
     default 115200
 
-config BU03_TAG_ID
-    int "Configured UWB Tag ID (UART2 does not carry ID)"
-    range 0 15
-    default 0
-    help
-        This value must match the ID configured in the only digital-key Tag.
-        The lock DIP switch selects the accepted ID and is compared with this value.
-
 config BU03_ACCEPTED_ID_DEFAULT
     int "Accepted ID when DIP switch GPIO is disabled"
     range 0 15
@@ -115,6 +107,25 @@ config C_KEY_FILTER_ALPHA_PERCENT
     int "EMA滤波系数百分比"
     range 1 100
     default 35
+
+config C_KEY_ANGLE_FILTER_STATIONARY_ALPHA_PERCENT
+    int "静止时角度EMA系数百分比"
+    range 1 100
+    default 15
+    help
+        较小的系数可降低静止角度抖动，但会增加响应延迟。
+
+config C_KEY_ANGLE_FILTER_MOVING_ALPHA_PERCENT
+    int "移动时角度EMA系数百分比"
+    range 1 100
+    default 60
+    help
+        当角度变化超过阈值时使用较大的系数，以保持动态跟随速度。
+
+config C_KEY_ANGLE_FILTER_MOTION_THRESHOLD_DEG
+    int "角度快速跟随阈值(deg)"
+    range 1 90
+    default 3
 
 config C_KEY_MAX_RESIDUAL_MM
     int "允许的最大定位残差(mm)"

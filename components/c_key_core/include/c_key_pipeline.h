@@ -11,6 +11,9 @@ typedef struct {
     float door_radius_m;
     float front_angle_offset_deg;
     float filter_alpha;
+    float angle_filter_stationary_alpha;
+    float angle_filter_moving_alpha;
+    float angle_filter_motion_threshold_deg;
     float minimum_distance_m;
     float maximum_distance_m;
     float maximum_residual_m;
@@ -48,6 +51,7 @@ typedef struct {
     uint16_t last_sequences[C_KEY_ANCHOR_COUNT];
     bool sample_seen[C_KEY_ANCHOR_COUNT];
     bool filter_valid[C_KEY_ANCHOR_COUNT];
+    c_key_angle_filter_t angle_filter;
     c_key_state_machine_t state_machine;
 } c_key_pipeline_t;
 

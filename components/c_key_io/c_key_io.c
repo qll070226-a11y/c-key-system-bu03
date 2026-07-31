@@ -56,7 +56,31 @@ static void set_output(int pin, bool on)
         return;
     }
 
-    const int active_level = CONFIG_C_KEY_OUTPUT_ACTIVE_HIGH ? 1 : 0;
+#ifdef CONFIG_C_KEY_OUTPUT_ACTIVE_HIGH
+    const int active_level = 1;
+#else
+    const int active_level = 0;
+#endif
+    gpio_set_level((gpio_num_t)pin, on ? active_level : !active_level);
+}
+
+static int buzzer_active_level(void)
+{
+#ifdef CONFIG_C_KEY_BUZZER_ACTIVE_LOW
+    return 0;
+#else
+    return 1;
+#endif
+}
+
+static void set_buzzer_output(bool on)
+{
+    const int pin = CONFIG_C_KEY_BUZZER_GPIO;
+    if (!pin_enabled(pin)) {
+        return;
+    }
+
+    const int active_level = buzzer_active_level();
     gpio_set_level((gpio_num_t)pin, on ? active_level : !active_level);
 }
 
@@ -97,13 +121,22 @@ esp_err_t c_key_io_init(c_key_io_t *io)
         CONFIG_C_KEY_RED_LED_GPIO,
         CONFIG_C_KEY_GREEN_LED_GPIO,
         CONFIG_C_KEY_WELCOME_LED_GPIO,
-        CONFIG_C_KEY_BUZZER_GPIO,
     };
     for (size_t i = 0; i < sizeof(outputs) / sizeof(outputs[0]); ++i) {
         const esp_err_t result = configure_output(outputs[i]);
         if (result != ESP_OK) {
             return result;
         }
+    }
+
+    if (pin_enabled(CONFIG_C_KEY_BUZZER_GPIO)) {
+        const int inactive_level = !buzzer_active_level();
+        gpio_set_level((gpio_num_t)CONFIG_C_KEY_BUZZER_GPIO, inactive_level);
+        const esp_err_t result = configure_output(CONFIG_C_KEY_BUZZER_GPIO);
+        if (result != ESP_OK) {
+            return result;
+        }
+        gpio_set_level((gpio_num_t)CONFIG_C_KEY_BUZZER_GPIO, inactive_level);
     }
 
     if (c_key_io_dip_available()) {
@@ -175,7 +208,7 @@ void c_key_io_apply_state(c_key_io_t *io,
     set_output(CONFIG_C_KEY_RED_LED_GPIO, !unlocked);
     set_output(CONFIG_C_KEY_GREEN_LED_GPIO, unlocked);
     set_output(CONFIG_C_KEY_WELCOME_LED_GPIO, welcome);
-    set_output(CONFIG_C_KEY_BUZZER_GPIO, io->buzzer_active);
+    set_buzzer_output(io->buzzer_active);
 }
 
 void c_key_io_force_safe(c_key_io_t *io)
@@ -188,6 +221,5 @@ void c_key_io_force_safe(c_key_io_t *io)
     set_output(CONFIG_C_KEY_RED_LED_GPIO, true);
     set_output(CONFIG_C_KEY_GREEN_LED_GPIO, false);
     set_output(CONFIG_C_KEY_WELCOME_LED_GPIO, false);
-    set_output(CONFIG_C_KEY_BUZZER_GPIO, false);
+    set_buzzer_output(false);
 }
-

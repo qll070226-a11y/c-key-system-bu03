@@ -24,6 +24,15 @@ static bool config_is_valid(const c_key_pipeline_config_t *config)
         !isfinite(config->front_angle_offset_deg) ||
         !isfinite(config->filter_alpha) || config->filter_alpha <= 0.0f ||
         config->filter_alpha > 1.0f ||
+        !isfinite(config->angle_filter_stationary_alpha) ||
+        config->angle_filter_stationary_alpha <= 0.0f ||
+        config->angle_filter_stationary_alpha > 1.0f ||
+        !isfinite(config->angle_filter_moving_alpha) ||
+        config->angle_filter_moving_alpha < config->angle_filter_stationary_alpha ||
+        config->angle_filter_moving_alpha > 1.0f ||
+        !isfinite(config->angle_filter_motion_threshold_deg) ||
+        config->angle_filter_motion_threshold_deg <= 0.0f ||
+        config->angle_filter_motion_threshold_deg > 90.0f ||
         !isfinite(config->minimum_distance_m) || !isfinite(config->maximum_distance_m) ||
         config->minimum_distance_m < 0.0f ||
         config->minimum_distance_m >= config->maximum_distance_m ||
@@ -55,6 +64,10 @@ bool c_key_pipeline_init(c_key_pipeline_t *pipeline,
     for (size_t i = 0; i < C_KEY_ANCHOR_COUNT; ++i) {
         c_key_distance_filter_init(&pipeline->filters[i], config->filter_alpha);
     }
+    c_key_angle_filter_init(&pipeline->angle_filter,
+                            config->angle_filter_stationary_alpha,
+                            config->angle_filter_moving_alpha,
+                            config->angle_filter_motion_threshold_deg);
     c_key_state_machine_init(&pipeline->state_machine, config->thresholds);
     return true;
 }
@@ -95,6 +108,7 @@ bool c_key_pipeline_process(c_key_pipeline_t *pipeline,
     };
 
     if (!input->signal_present) {
+        c_key_angle_filter_reset(&pipeline->angle_filter);
         output->events = c_key_state_machine_update(&pipeline->state_machine, &state_input);
         update_output_state(pipeline, output);
         return true;
@@ -158,11 +172,21 @@ bool c_key_pipeline_process(c_key_pipeline_t *pipeline,
                                pipeline->config.front_angle_offset_deg,
                                residual,
                                &output->pose)) {
-            output->pose_valid = true;
-            state_input.measurement_valid = true;
-            state_input.boundary_distance_m = output->pose.boundary_distance_m;
-            state_input.angle_deg = output->pose.angle_deg;
+            float filtered_angle_deg;
+            if (c_key_angle_filter_push(&pipeline->angle_filter,
+                                        output->pose.angle_deg,
+                                        &filtered_angle_deg)) {
+                output->pose.angle_deg = filtered_angle_deg;
+                output->pose_valid = true;
+                state_input.measurement_valid = true;
+                state_input.boundary_distance_m = output->pose.boundary_distance_m;
+                state_input.angle_deg = output->pose.angle_deg;
+            }
         }
+    }
+
+    if (!output->pose_valid) {
+        c_key_angle_filter_reset(&pipeline->angle_filter);
     }
 
     output->events = c_key_state_machine_update(&pipeline->state_machine, &state_input);

@@ -8,8 +8,8 @@
 
 - 数字钥匙：1块BU03-Kit Tag，ID为0。
 - 智能门锁：2块BU03-Kit Anchor、ESP32-S3-N16R8、2.4英寸SPI TFT、4位拨码、3个LED和蜂鸣器。
-- 通信和定位：BU03 UWB；ESP32通过Anchor 0的UART2输出取得Tag到两个Anchor的测距。
-- 当前算法：双圆交点求二维位置，选择门锁正前方解，计算径向距离和方位角，再执行ID认证与区域状态机。
+- 通信和定位：BU03 UWB；ESP32通过Anchor 0的UART2取得双Anchor测距，通过Anchor 0主USB完整帧取得真实Tag ID。
+- 当前算法：两路距离分别执行5点中值与EMA滤波，双圆交点求二维位置并选择门锁正前方解；方位角再执行5点中值与自适应EMA滤波，最后执行ID认证与区域状态机。
 
 ## 2. 当前完成度
 
@@ -19,21 +19,26 @@
 - Anchor 0 UART2到ESP32 GPIO18的37字节二进制帧接收正常，曾观察约47帧/5秒且坏帧为0。
 - 帧中A0/A1两路距离可以解析并进入定位流水线。
 - TFT实屏显示正常，控制器按ILI9341驱动，文字、方向和颜色正常。
+- TFT已改为320x240中文仪表盘，使用54字的16x16精简点阵字库；保留原英文串口日志，新增中文时必须同步运行字库生成器并检查字符覆盖。
 - 4位拨码实时修改门锁认可ID正常：全OFF为00，bit0 ON为01。
 - `LOCK:CLOSED`时红灯亮；GPIO输出链路正常。
 - PC端核心、协议、状态机和比赛场景测试已通过。
 - 固件已设置16MB Flash。
 - 固件新增每帧`C_KEY_DIAG_V1`，包含原始、校正、滤波距离及定位结果；原`C_KEY_CSV`保持兼容。
+- 方位角新增自适应滤波：静止EMA系数0.15，移动EMA系数0.60，快速跟随阈值3度；TFT、状态机和上位机统一使用滤波后角度，UWB丢失或定位无效时会清空角度滤波状态。
 - Python调试上位机已完成：串口、实时曲线、二维轨迹、定点统计、线性拟合、CSV记录和回放均已实现。
 - 上位机10项核心测试、模拟数据启动和1440x900截图检查通过。
 - 诊断固件已烧录到ESP32 COM21并通过Flash校验。
 - 旧Tag已经损坏并停用；2026-07-31重新配置的新Tag通过COM14供电后，UWB链路恢复。
 - 实物诊断链路复测通过：10秒收到100条`C_KEY_DIAG_V1`，解析错误0，掩码持续为0x03。
+- 厂家主USB协议已实测：Anchor 0原生USB为VID:PID 0483:5740，3秒收到3030字节，即30个101字节完整帧；实测帧含`Tagid=0`，XOR范围为偏移6到97。
+- 固件已新增ESP32-S3 USB CDC Host身份接收，只有主USB真实ID和UART2距离均在500ms内有效才允许认证；无ID时显示`----`并安全闭锁。PC单元测试与ESP-IDF构建已通过。
 
 尚未完成或尚未验收：
 
 - 正式12V电池和两路DCDC供电尚未接入测试。
-- 蜂鸣器仅完成软件逻辑，硬件驱动方式仍需确认和实测。
+- Anchor 0主USB D-/D+/VBUS尚未实际接到ESP32 GPIO19/GPIO20和DCDC 2，因此新增USB身份固件尚未烧录做门锁端联调。
+- 蜂鸣器已更换为低电平触发模块，GPIO8低电平响、高电平关闭；软件脉冲为500ms，仍需实测响声和上电是否误鸣。
 - 绿灯、迎宾灯未逐项留下正式验收记录。
 - 最终洞洞板、线束、外壳和天线姿态尚未固定。
 - 最终装箱后的距离、角度和正前方零点需要重新标定。
@@ -48,7 +53,7 @@
 |---|---|---:|
 | 原BU03 Tag | 已损坏、停用 | 曾用COM6 |
 | 当前BU03 Tag | 重新配置，UWB测距已恢复 | COM14 |
-| BU03 Anchor 0 | ID 0，UART2连接ESP32 | 当前未单独连接USB |
+| BU03 Anchor 0 | ID 0，UART2连接ESP32；PC抓包时主USB为COM19、AT口为COM20 | COM19/COM20 |
 | BU03-Kit 3 | Anchor 1，ID 1 | COM18 |
 | 剩余备用板 | 可作为Anchor 2，具体板号需重新核对 | 未固定 |
 | ESP32-S3 CH343 | 门锁主控 | COM21 |
@@ -90,11 +95,14 @@ A1 corrected_mm = raw_mm * 0.995319 - 45
 4. 重新采集0、正负30、正负45度数据。
 5. 若仍不合格，使用第4块BU03-Kit增加Anchor 2，改为三基站定位。
 
+角度自适应滤波只能降低静止随机抖动，不能消除上述多径和测距系统偏差。验收仍以独立角度点的绝对误差为准，不能只看稳定后的曲线是否平滑。
+
 ## 6. 软件结构
 
 ```text
-main/app_main.c                  ESP32任务、UART、TFT、GPIO和超时闭锁
-components/c_key_core/          纯C协议、定位、滤波、状态机、显示和遥测
+main/app_main.c                  ESP32任务、UART、USB身份关联、TFT、GPIO和超时闭锁
+components/c_key_core/          纯C距离/身份协议、定位、滤波、状态机、显示和遥测
+components/c_key_bu03_usb/      ESP32-S3 USB CDC Host与真实Tag ID缓存
 components/c_key_io/            拨码、LED和蜂鸣器GPIO
 components/c_key_tft/           ILI9341/ST7789 SPI TFT驱动
 tests/                          PC端严格警告单元与比赛场景测试
@@ -121,19 +129,19 @@ COM21仅为历史值，应替换为当前ESP32端口。监视器中按`Ctrl+]`�
 
 ## 8. 交接后的第一批工作
 
-1. 阅读`docs/HARDWARE.md`，核对实物每根线和电源极性。
+1. 阅读`docs/HARDWARE.md`，先完成Anchor 0主USB D-/D+/VBUS接线，核对GPIO19/20极性并确认两路DCDC的5V输出没有并联。
 2. 备份三块BU03的版本、配置和设备信息，不修改射频配置。
 3. 运行PC测试和ESP-IDF构建，建立新队友电脑上的可复现基线。
-4. 当前诊断链路已经通过；更换接线或供电后仍应在`host`目录运行`check_serial.bat COM21`复核。
+4. 烧录新增固件后检查日志中`usb_connected=1 usb_id_ok=1 usb_ok`持续增长，再在`host`目录运行`check_serial.bat COM21`复核。
 5. 使用上位机复测拨码ID失配、红绿迎宾灯和UWB掉线闭锁。
-6. 确认蜂鸣器扩展板带驱动管后再接GPIO8。
+6. 实测低电平触发蜂鸣器进入迎宾区响500ms，确认上电、UWB掉线和故障状态不误鸣。
 7. 完成正式电源，再用上位机对比贴地与抬高条件。
 8. 最终固定机械结构后才进行最终距离与角度标定。
 
 ## 9. 资料入口
 
 - [硬件与接线](docs/HARDWARE.md)
-- [BU03串口协议](docs/BU03_PROTOCOL.md)
+- [BU03距离与身份协议](docs/BU03_PROTOCOL.md)
 - [标定与验收](docs/CALIBRATION_AND_ACCEPTANCE.md)
 - [调试上位机](host/README.md)
 - [原始题目和厂家规格书](docs/reference/README.md)

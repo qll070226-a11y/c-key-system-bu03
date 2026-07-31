@@ -47,11 +47,31 @@ bool c_key_display_format(const c_key_pipeline_output_t *pipeline,
     }
 
     memset(frame, 0, sizeof(*frame));
-    snprintf(frame->lines[0], C_KEY_DISPLAY_LINE_LENGTH,
-             "KEY:%02u LOCK:%02u %s",
-             pipeline->tag_id,
-             accepted_id,
-             authentication_name(pipeline, accepted_id));
+    frame->tag_id = pipeline->tag_id;
+    frame->accepted_id = accepted_id;
+    frame->key_present = pipeline->state != C_KEY_STATE_NO_KEY;
+    frame->authenticated = frame->key_present &&
+                           pipeline->tag_id <= 15U &&
+                           pipeline->tag_id == accepted_id;
+    frame->pose_valid = pipeline->pose_valid;
+    frame->uwb_link_ok = uwb_link_ok;
+    frame->distance_m = pipeline->pose.boundary_distance_m;
+    frame->angle_deg = pipeline->pose.angle_deg;
+    frame->state = pipeline->state;
+    frame->welcome_output = pipeline->welcome_output;
+    frame->unlocked_output = pipeline->unlocked_output;
+
+    if (frame->key_present) {
+        snprintf(frame->lines[0], C_KEY_DISPLAY_LINE_LENGTH,
+                 "KEY:%02u LOCK:%02u %s",
+                 pipeline->tag_id,
+                 accepted_id,
+                 authentication_name(pipeline, accepted_id));
+    } else {
+        snprintf(frame->lines[0], C_KEY_DISPLAY_LINE_LENGTH,
+                 "KEY:-- LOCK:%02u NO KEY",
+                 accepted_id);
+    }
 
     if (pipeline->pose_valid) {
         snprintf(frame->lines[1], C_KEY_DISPLAY_LINE_LENGTH,
@@ -86,4 +106,3 @@ bool c_key_display_format(const c_key_pipeline_output_t *pipeline,
     }
     return true;
 }
-

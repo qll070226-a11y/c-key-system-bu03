@@ -1,0 +1,16 @@
+menu "C题 BU03-Kit USB身份接收"
+
+config C_KEY_BU03_USB_VID
+    hex "BU03主USB VID"
+    default 0x0483
+
+config C_KEY_BU03_USB_PID
+    hex "BU03主USB PID"
+    default 0x5740
+
+config C_KEY_BU03_ID_TIMEOUT_MS
+    int "真实Tag ID有效期(ms)"
+    range 100 5000
+    default 500
+
+endmenu
