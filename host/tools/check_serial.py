@@ -48,17 +48,17 @@ def main() -> int:
     )
     if first is not None:
         print(
-            f'first: seq={first.sequence} mask=0x{first.valid_mask:02X} '
-            f'raw=({first.raw_a0_mm},{first.raw_a1_mm}) '
+            f'first: seq={first.sequence} address=0x{first.tag_address:04X} '
+            f'raw=({first.raw_distance_cm}cm,{first.raw_angle_deg:+.1f}deg) '
             f'state={first.state}'
         )
         print(
             f'last: seq={last.sequence} ready={int(last.measurement_ready)} '
             f'pose={int(last.pose_valid)} '
-            f'corrected=({last.corrected_a0_mm:.1f},{last.corrected_a1_mm:.1f})mm '
-            f'filtered=({last.filtered_a0_mm:.1f},{last.filtered_a1_mm:.1f})mm '
+            f'corrected={last.corrected_distance_mm:.1f}mm '
+            f'filtered={last.filtered_distance_mm:.1f}mm '
             f'xy=({last.x_m:+.3f},{last.y_m:+.3f})m '
-            f'angle={last.angle_deg:+.2f}deg residual={last.residual_m:.3f}m '
+            f'angle={last.filtered_angle_deg:+.2f}deg '
             f'state={last.state}'
         )
     else:

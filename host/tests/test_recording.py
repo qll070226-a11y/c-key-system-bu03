@@ -12,7 +12,7 @@ class RecordingTests(unittest.TestCase):
     def test_write_and_read(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'session.csv'
-            original = make_frame(1000, 1010)
+            original = make_frame(100, 10.0)
             metadata = PointMetadata(
                 label='P1', true_x_m=0.0, true_y_m=1.0,
                 anchor_height_cm=20.0, tag_height_cm=45.0, notes='抬高测试',
@@ -27,7 +27,7 @@ class RecordingTests(unittest.TestCase):
     def test_load_legacy_height_as_tag_height(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'legacy_session.csv'
-            original = make_frame(1000, 1010)
+            original = make_frame(100, 10.0)
             fields = (
                 'host_time_iso', 'point_label', 'true_x_m', 'true_y_m',
                 'height_cm', 'notes', *DIAGNOSTIC_FIELDS,

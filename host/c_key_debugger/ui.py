@@ -11,7 +11,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from .analysis import (
     CapturePoint,
-    fit_anchor_calibration,
+    fit_distance_calibration,
     summarize_capture,
 )
 from .demo import DemoGenerator
@@ -20,7 +20,6 @@ from .serial_io import ReplayWorker, SerialWorker, available_ports
 from .telemetry import DiagnosticFrame, TelemetryParseError, parse_diagnostic_line
 
 
-ANCHORS = ((-0.22, 0.0), (0.22, 0.0))
 PLOT_HISTORY = 360
 
 
@@ -46,9 +45,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._series = {
             name: deque(maxlen=PLOT_HISTORY)
             for name in (
-                'raw0', 'corrected0', 'filtered0',
-                'raw1', 'corrected1', 'filtered1',
-                'angle', 'residual',
+                'raw_distance', 'corrected_distance', 'filtered_distance',
+                'raw_angle', 'filtered_angle', 'boundary',
             )
         }
         self._trail_x = deque(maxlen=PLOT_HISTORY)
@@ -89,7 +87,7 @@ class MainWindow(QtWidgets.QMainWindow):
         bar.setObjectName('connectionBar')
         layout = QtWidgets.QHBoxLayout(bar)
         layout.setContentsMargins(12, 8, 12, 8)
-        layout.addWidget(QtWidgets.QLabel('ESP32串口'))
+        layout.addWidget(QtWidgets.QLabel('ESP32诊断串口'))
         self.port_combo = QtWidgets.QComboBox()
         self.port_combo.setMinimumWidth(250)
         layout.addWidget(self.port_combo)
@@ -168,9 +166,10 @@ class MainWindow(QtWidgets.QMainWindow):
         metrics = QtWidgets.QHBoxLayout()
         for key, title in (
             ('state', '门锁状态'), ('ids', '钥匙 / 门锁ID'),
-            ('raw', '原始A0 / A1'), ('corrected', '校正A0 / A1'),
-            ('filtered', '滤波A0 / A1'), ('pose', '位置 X / Y'),
-            ('angle', '角度'), ('residual', '定位残差'), ('quality', '帧质量'),
+            ('address', 'UWB标签地址'), ('raw', '原始距离 / 角度'),
+            ('corrected', '校正距离'), ('filtered', '滤波距离 / 角度'),
+            ('pose', '位置 X / Y'), ('boundary', '门锁边界距离'),
+            ('quality', '帧质量'),
         ):
             metrics.addWidget(self._metric_widget(key, title), 1)
         layout.addLayout(metrics)
@@ -180,28 +179,38 @@ class MainWindow(QtWidgets.QMainWindow):
         plots_layout = QtWidgets.QVBoxLayout(plots)
         plots_layout.setContentsMargins(0, 0, 0, 0)
         plots_layout.setSpacing(6)
-        self.a0_plot = pg.PlotWidget()
-        self.a1_plot = pg.PlotWidget()
+        self.distance_plot = pg.PlotWidget()
         self.angle_plot = pg.PlotWidget()
-        self._configure_plot(self.a0_plot, 'Anchor 0 距离分层', 'mm')
-        self._configure_plot(self.a1_plot, 'Anchor 1 距离分层', 'mm')
-        self._configure_plot(self.angle_plot, '方位角与定位残差', 'deg / cm')
-        plots_layout.addWidget(self.a0_plot)
-        plots_layout.addWidget(self.a1_plot)
+        self.boundary_plot = pg.PlotWidget()
+        self._configure_plot(self.distance_plot, 'BU04 PDOA距离分层', 'mm')
+        self._configure_plot(self.angle_plot, 'BU04 PDOA方位角', 'deg')
+        self._configure_plot(self.boundary_plot, '门锁外壳边界距离', 'cm')
+        plots_layout.addWidget(self.distance_plot)
         plots_layout.addWidget(self.angle_plot)
+        plots_layout.addWidget(self.boundary_plot)
         self.curves = {
-            'raw0': self.a0_plot.plot(pen=pg.mkPen('#6b7280', width=1), name='原始'),
-            'corrected0': self.a0_plot.plot(pen=pg.mkPen('#2563eb', width=2), name='校正'),
-            'filtered0': self.a0_plot.plot(pen=pg.mkPen('#16a34a', width=2), name='滤波'),
-            'raw1': self.a1_plot.plot(pen=pg.mkPen('#6b7280', width=1), name='原始'),
-            'corrected1': self.a1_plot.plot(pen=pg.mkPen('#b45309', width=2), name='校正'),
-            'filtered1': self.a1_plot.plot(pen=pg.mkPen('#db2777', width=2), name='滤波'),
-            'angle': self.angle_plot.plot(pen=pg.mkPen('#7c3aed', width=2), name='角度'),
-            'residual': self.angle_plot.plot(pen=pg.mkPen('#dc2626', width=1), name='残差cm'),
+            'raw_distance': self.distance_plot.plot(
+                pen=pg.mkPen('#6b7280', width=1), name='原始'
+            ),
+            'corrected_distance': self.distance_plot.plot(
+                pen=pg.mkPen('#2563eb', width=2), name='校正'
+            ),
+            'filtered_distance': self.distance_plot.plot(
+                pen=pg.mkPen('#16a34a', width=2), name='滤波'
+            ),
+            'raw_angle': self.angle_plot.plot(
+                pen=pg.mkPen('#9ca3af', width=1), name='原始'
+            ),
+            'filtered_angle': self.angle_plot.plot(
+                pen=pg.mkPen('#7c3aed', width=2), name='滤波'
+            ),
+            'boundary': self.boundary_plot.plot(
+                pen=pg.mkPen('#dc2626', width=2), name='边界距离'
+            ),
         }
-        self.a0_plot.addLegend(offset=(8, 8))
-        self.a1_plot.addLegend(offset=(8, 8))
+        self.distance_plot.addLegend(offset=(8, 8))
         self.angle_plot.addLegend(offset=(8, 8))
+        self.boundary_plot.addLegend(offset=(8, 8))
 
         self.position_plot = pg.PlotWidget()
         self.position_plot.setBackground('#ffffff')
@@ -216,7 +225,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._add_zone_circle(1.20, '#dc2626')
         self._add_zone_circle(2.20, '#16a34a')
         self.position_plot.plot(
-            [ANCHORS[0][0], ANCHORS[1][0]], [ANCHORS[0][1], ANCHORS[1][1]],
+            [0.0], [0.0],
             pen=None, symbol='t1', symbolSize=15, symbolBrush='#111827',
         )
         self.trail_scatter = self.position_plot.plot(
@@ -435,6 +444,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.statusBar().showMessage(f'数据源已连接：{text}')
         self.connect_button.setEnabled(False)
         self.disconnect_button.setEnabled(True)
+        self.statusBar().showMessage(
+            f'数据源已连接：{text}；等待ESP32输出C_KEY_DIAG_V2'
+        )
 
     def source_closed(self) -> None:
         self.source_label.setText('未连接')
@@ -495,23 +507,23 @@ class MainWindow(QtWidgets.QMainWindow):
             self.handle_frame(frame)
 
     def handle_frame(self, frame: DiagnosticFrame) -> None:
-        if self._last_sequence is not None and frame.sequence > self._last_sequence + 1:
-            self._sequence_gaps += frame.sequence - self._last_sequence - 1
+        if self._last_sequence is not None:
+            delta = (frame.sequence - self._last_sequence) & 0xFF
+            if 1 < delta < 128:
+                self._sequence_gaps += delta - 1
         self._last_sequence = frame.sequence
         self._time.append(frame.timestamp_ms / 1000.0)
-        self._series['raw0'].append(float(frame.raw_a0_mm))
-        self._series['corrected0'].append(frame.corrected_a0_mm)
-        self._series['filtered0'].append(
-            frame.filtered_a0_mm if frame.measurement_ready else math.nan
+        self._series['raw_distance'].append(frame.raw_distance_cm * 10.0)
+        self._series['corrected_distance'].append(frame.corrected_distance_mm)
+        self._series['filtered_distance'].append(
+            frame.filtered_distance_mm if frame.measurement_ready else math.nan
         )
-        self._series['raw1'].append(float(frame.raw_a1_mm))
-        self._series['corrected1'].append(frame.corrected_a1_mm)
-        self._series['filtered1'].append(
-            frame.filtered_a1_mm if frame.measurement_ready else math.nan
+        self._series['raw_angle'].append(frame.raw_angle_deg)
+        self._series['filtered_angle'].append(
+            frame.filtered_angle_deg if frame.pose_valid else math.nan
         )
-        self._series['angle'].append(frame.angle_deg if frame.pose_valid else math.nan)
-        self._series['residual'].append(
-            frame.residual_m * 100.0 if frame.pose_valid else math.nan
+        self._series['boundary'].append(
+            frame.boundary_m * 100.0 if frame.pose_valid else math.nan
         )
         if frame.pose_valid:
             self._trail_x.append(frame.x_m)
@@ -524,24 +536,23 @@ class MainWindow(QtWidgets.QMainWindow):
     def _update_metrics(self, frame: DiagnosticFrame) -> None:
         self._metric_values['state'].setText(frame.state)
         self._metric_values['ids'].setText(f'{frame.tag_id:02d} / {frame.accepted_id:02d}')
+        self._metric_values['address'].setText(f'0x{frame.tag_address:04X}')
         self._metric_values['raw'].setText(
-            f'{frame.raw_a0_mm:.0f} / {frame.raw_a1_mm:.0f} mm'
+            f'{frame.raw_distance_cm} cm / {frame.raw_angle_deg:+.1f}°'
         )
         self._metric_values['corrected'].setText(
-            f'{frame.corrected_a0_mm:.0f} / {frame.corrected_a1_mm:.0f} mm'
+            f'{frame.corrected_distance_mm:.0f} mm'
         )
         self._metric_values['filtered'].setText(
-            f'{frame.filtered_a0_mm:.0f} / {frame.filtered_a1_mm:.0f} mm'
+            f'{frame.filtered_distance_mm:.0f} mm / '
+            f'{frame.filtered_angle_deg:+.1f}°'
             if frame.measurement_ready else '--'
         )
         self._metric_values['pose'].setText(
             f'{frame.x_m:+.3f} / {frame.y_m:+.3f} m' if frame.pose_valid else '--'
         )
-        self._metric_values['angle'].setText(
-            f'{frame.angle_deg:+.2f}°' if frame.pose_valid else '--'
-        )
-        self._metric_values['residual'].setText(
-            f'{frame.residual_m * 100.0:.1f} cm' if frame.pose_valid else '--'
+        self._metric_values['boundary'].setText(
+            f'{frame.boundary_m:.3f} m' if frame.pose_valid else '--'
         )
         self._metric_values['quality'].setText(
             f'OK {frame.accepted_frames} / BAD {frame.rejected_frames} / '
@@ -633,7 +644,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _capture_frame(self, frame: DiagnosticFrame) -> None:
         capture = self._active_capture
-        if capture is None or not frame.link_ok or (frame.valid_mask & 0x03) != 0x03:
+        if capture is None or not frame.link_ok or not frame.measurement_ready:
             return
         capture.frames.append(frame)
         count = len(capture.frames)
@@ -688,7 +699,7 @@ class MainWindow(QtWidgets.QMainWindow):
         return f'{value:.{decimals}f}'
 
     def _show_capture_summary(self, capture: CapturePoint) -> None:
-        rows = summarize_capture(capture, ANCHORS)
+        rows = summarize_capture(capture)
         self.summary_table.setRowCount(len(rows))
         for row_index, metric in enumerate(rows):
             stats = metric.stats
@@ -713,18 +724,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def show_calibration_fit(self) -> None:
         try:
-            fit0, fit1 = fit_anchor_calibration(self._captures, ANCHORS)
+            fit = fit_distance_calibration(self._captures)
         except ValueError as exc:
             QtWidgets.QMessageBox.warning(self, '无法标定', str(exc))
             return
         text = (
-            '建议线性校正参数（仅供复核，不会自动写入固件）：\n\n'
-            f'Anchor 0: scale={fit0.scale:.6f}, offset={fit0.offset_mm:+.1f} mm\n'
-            f'  PPM={round(fit0.scale * 1_000_000)}, '
-            f'MAE={fit0.mae_mm:.1f} mm, MAX={fit0.maximum_error_mm:.1f} mm\n\n'
-            f'Anchor 1: scale={fit1.scale:.6f}, offset={fit1.offset_mm:+.1f} mm\n'
-            f'  PPM={round(fit1.scale * 1_000_000)}, '
-            f'MAE={fit1.mae_mm:.1f} mm, MAX={fit1.maximum_error_mm:.1f} mm'
+            'BU04距离线性校正建议（不会自动写入固件）：\n\n'
+            f'scale={fit.scale:.6f}, offset={fit.offset_mm:+.1f} mm\n'
+            f'PPM={round(fit.scale * 1_000_000)}, '
+            f'MAE={fit.mae_mm:.1f} mm, MAX={fit.maximum_error_mm:.1f} mm\n\n'
+            '角度零偏请查看“滤波方位角”的中位误差，'
+            '在多个角度点确认后再写入固件。'
         )
         QtWidgets.QMessageBox.information(self, '线性标定结果', text)
 
@@ -749,7 +759,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 'reference', 'median_error',
             ))
             for capture in self._captures:
-                for metric in summarize_capture(capture, ANCHORS):
+                for metric in summarize_capture(capture):
                     stats = metric.stats
                     writer.writerow((
                         capture.label, capture.true_x_m, capture.true_y_m,

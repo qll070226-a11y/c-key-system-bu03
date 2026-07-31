@@ -1,0 +1,56 @@
+{
+  "port": "COM6",
+  "baud": 115200,
+  "captured_at": "2026-07-31T23:08:25+08:00",
+  "target_tag_address": "0525006475676E19",
+  "target_short_address": "6E19",
+  "commands": [
+    {
+      "command": "AT+GETCFG",
+      "response_hex": "0d 0d 67 65 74 63 66 67 20 49 44 3a 30 2c 20 52 6f 6c 65 3a 31 2c 20 43 48 3a 31 2c 20 52 61 74 65 3a 31 0d 0a 0a 4f 4b 0d 0a",
+      "response_display": "\r\rgetcfg ID:0, Role:1, CH:1, Rate:1\r\n\nOK\r\n"
+    },
+    {
+      "command": "AT+GETDLIST",
+      "response_hex": "7b 0d 44 4c 69 73 74 22 3a 5b 20 22 30 35 32 35 30 30 36 34 37 35 36 37 36 45 31 39 22 5d 7d 0a 4f 4b 0d 0a 4a 53 30 30 31 44 7b 22 4e 65 77 54 61 67 22 3a 22 30 35 32 35 30 30 36 34 37 35 36 37 36 45 31 39 22 7d 0d 0a",
+      "response_display": "{\rDList\":[ \"0525006475676E19\"]}\nOK\r\nJS001D{\"NewTag\":\"0525006475676E19\"}\r\n"
+    },
+    {
+      "command": "AT+GETKLIST",
+      "response_hex": "7b 0d 4b 4c 69 73 74 22 3a 5b 7b 22 73 6c 6f 74 22 3a 22 30 30 30 31 22 2c 22 61 36 34 22 3a 22 30 35 31 32 30 31 35 37 36 30 41 32 30 41 42 30 22 2c 22 61 31 36 22 3a 22 38 38 33 34 22 2c 22 46 22 3a 22 30 30 30 31 22 2c 22 53 22 3a 22 30 30 34 30 22 2c 22 4d 22 3a 22 30 30 30 30 22 7d 5d 7d 0a 4f 4b 0d 0a",
+      "response_display": "{\rKList\":[{\"slot\":\"0001\",\"a64\":\"0512015760A20AB0\",\"a16\":\"8834\",\"F\":\"0001\",\"S\":\"0040\",\"M\":\"0000\"}]}\nOK\r\n"
+    },
+    {
+      "command": "AT+DELTAG=0512015760A20AB0",
+      "response_hex": "4a 0d 30 30 32 32 7b 22 54 61 67 44 65 6c 65 74 65 64 22 3a 20 22 20 35 31 32 30 31 35 37 36 30 61 32 30 61 62 30 22 7d 0d 0a 0a 4f 4b 0d 0a",
+      "response_display": "J\r0022{\"TagDeleted\": \" 512015760a20ab0\"}\r\n\nOK\r\n"
+    },
+    {
+      "command": "AT+ADDTAG=0525006475676E19,6E19,1,64,0",
+      "response_hex": "4a 0d 30 30 36 34 7b 22 54 61 67 41 64 64 65 64 22 3a 20 7b 22 73 6c 6f 74 22 3a 22 30 30 30 31 22 2c 22 61 36 34 22 3a 22 30 35 32 35 30 30 36 34 37 35 36 37 36 45 31 39 22 2c 22 61 31 36 22 3a 22 36 45 31 39 22 2c 22 46 22 3a 22 30 30 30 31 22 2c 22 53 22 3a 22 30 30 34 30 22 2c 22 4d 22 3a 22 30 30 30 30 22 7d 7d 0d 0a 0a 4f 4b 0d 0a",
+      "response_display": "J\r0064{\"TagAdded\": {\"slot\":\"0001\",\"a64\":\"0525006475676E19\",\"a16\":\"6E19\",\"F\":\"0001\",\"S\":\"0040\",\"M\":\"0000\"}}\r\n\nOK\r\n"
+    },
+    {
+      "command": "AT+SAVE",
+      "response_hex": "0d 0a 4f 4b 0d 0a",
+      "response_display": "\r\nOK\r\n"
+    },
+    {
+      "command": "AT+GETKLIST",
+      "response_hex": "7b 0d 4b 4c 69 73 74 22 3a 5b 7b 22 73 6c 6f 74 22 3a 22 30 30 30 31 22 2c 22 61 36 34 22 3a 22 30 35 32 35 30 30 36 34 37 35 36 37 36 45 31 39 22 2c 22 61 31 36 22 3a 22 36 45 31 39 22 2c 22 46 22 3a 22 30 30 30 31 22 2c 22 53 22 3a 22 30 30 34 30 22 2c 22 4d 22 3a 22 30 30 30 30 22 7d 5d 7d 0a 4f 4b 0d 0a",
+      "response_display": "{\rKList\":[{\"slot\":\"0001\",\"a64\":\"0525006475676E19\",\"a16\":\"6E19\",\"F\":\"0001\",\"S\":\"0040\",\"M\":\"0000\"}]}\nOK\r\n"
+    }
+  ],
+  "discovered_before": [
+    "0525006475676E19",
+    "0525006475676E19"
+  ],
+  "paired_before": [
+    "0512015760A20AB0"
+  ],
+  "post_save_boot_hex": "2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 55 57 42 20 4d 6f 64 75 6c 65 20 cf b5 cd b3 b2 ce ca fd 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 0d 0a 20 20 20 55 57 42 20 4d 6f 64 75 6c 65 20 b1 e0 d2 eb ca b1 bc e4 20 31 35 3a 31 33 3a 32 37 20 4a 75 6c 20 31 39 20 32 30 32 34 0a 20 20 20 55 57 42 20 4d 6f 64 75 6c 65 20 c8 ed bc fe b0 e6 b1 be ba c5 a3 ba 56 31 2e 30 2e 30 0d 0a 20 20 20 55 57 42 20 4d 6f 64 75 6c 65 20 bb f9 d5 be cd f8 c2 e7 3a 31 31 31 31 20 bb f9 d5 be c8 dd c1 bf 3a 38 20 b1 ea c7 a9 c8 dd c1 bf 3a 31 30 20 d7 ee b4 f3 b1 ea c7 a9 c8 dd c1 bf 3a 33 32 0d 0a 20 20 20 55 57 42 20 4d 6f 64 75 6c 65 20 b1 ea d6 be ce bb a3 ba 41 41 41 41 0d 0a 20 20 20 55 57 42 20 4d 6f 64 75 6c 65 20 bf aa bb fa b4 ce ca fd a3 ba 35 0d 0a 20 20 20 55 57 42 20 4d 6f 64 75 6c 65 20 b4 ed ce f3 ce bb 31 3a 30 2c 20 b4 ed ce f3 ce bb 32 3a 30 2c 20 b4 ed ce f3 ce bb 33 3a 30 2c 20 b4 ed ce f3 ce bb 34 3a 30 2c 20 b4 ed ce f3 ce bb 35 3a 30 0d 0a 20 20 20 55 57 42 20 4d 6f 64 75 6c 65 20 be e0 c0 eb b2 ce ca fd 3a c6 f4 b6 af c2 cb b2 a8 3a 31 2c bf a8 b6 fb c2 fc b2 ce ca fd 51 3a 30 2e 30 31 38 2c 20 bf a8 b6 fb c2 fc b2 ce ca fd 52 3a 30 2e 36 34 32 2c 20 d0 a3 d5 fd cf b5 ca fd 61 3a 31 2e 30 30 30 30 2c 20 d0 a3 d5 fd cf b5 ca fd 62 3a 30 2e 30 30 2c 20 cc ec cf df d1 d3 b3 d9 3a 31 36 33 33 36 0a 0d 0a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 55 57 42 20 4d 6f 64 75 6c 65 20 cf b5 cd b3 b2 ce ca fd 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 2a 0d 0a 72 6e 67 4f 66 66 73 65 74 5f 6d 6d a3 ba 30 2c 70 64 6f 61 4f 66 66 73 65 74 5f 64 65 67 20 3a 30 2c 20 6d 6f 74 69 6f 6e 66 69 6c 74 65 72 3a 31 2c 20 75 73 65 72 5f 63 6d 64 3a 30 0a 73 6c 6f 74 3a 31 2c 61 64 64 72 3a 36 45 31 39 0a bb f9 d5 be c5 e4 d6 c3 b3 c9 b9 a6 0a",
+  "post_save_boot_display": "*******************UWB Module \\xCF\\xB5\\xCD\\xB3\\xB2\\xCE\\xCA\\xFD*******************\r\n   UWB Module \\xB1\\xE0\\xD2\\xEB\\xCA\\xB1\\xBC\\xE4 15:13:27 Jul 19 2024\n   UWB Module \\xC8\\xED\\xBC\\xFE\\xB0\\xE6\\xB1\\xBE\\xBA\\xC5\\xA3\\xBAV1.0.0\r\n   UWB Module \\xBB\\xF9\\xD5\\xBE\\xCD\\xF8\\xC2\\xE7:1111 \\xBB\\xF9\\xD5\\xBE\\xC8\\xDD\\xC1\\xBF:8 \\xB1\\xEA\\xC7\\xA9\\xC8\\xDD\\xC1\\xBF:10 \\xD7\\xEE\\xB4\\xF3\\xB1\\xEA\\xC7\\xA9\\xC8\\xDD\\xC1\\xBF:32\r\n   UWB Module \\xB1\\xEA\\xD6\\xBE\\xCE\\xBB\\xA3\\xBAAAAA\r\n   UWB Module \\xBF\\xAA\\xBB\\xFA\\xB4\\xCE\\xCA\\xFD\\xA3\\xBA5\r\n   UWB Module \\xB4\\xED\\xCE\\xF3\\xCE\\xBB1:0, \\xB4\\xED\\xCE\\xF3\\xCE\\xBB2:0, \\xB4\\xED\\xCE\\xF3\\xCE\\xBB3:0, \\xB4\\xED\\xCE\\xF3\\xCE\\xBB4:0, \\xB4\\xED\\xCE\\xF3\\xCE\\xBB5:0\r\n   UWB Module \\xBE\\xE0\\xC0\\xEB\\xB2\\xCE\\xCA\\xFD:\\xC6\\xF4\\xB6\\xAF\\xC2\\xCB\\xB2\\xA8:1,\\xBF\\xA8\\xB6\\xFB\\xC2\\xFC\\xB2\\xCE\\xCA\\xFDQ:0.018, \\xBF\\xA8\\xB6\\xFB\\xC2\\xFC\\xB2\\xCE\\xCA\\xFDR:0.642, \\xD0\\xA3\\xD5\\xFD\\xCF\\xB5\\xCA\\xFDa:1.0000, \\xD0\\xA3\\xD5\\xFD\\xCF\\xB5\\xCA\\xFDb:0.00, \\xCC\\xEC\\xCF\\xDF\\xD1\\xD3\\xB3\\xD9:16336\n\r\n*******************UWB Module \\xCF\\xB5\\xCD\\xB3\\xB2\\xCE\\xCA\\xFD*******************\r\nrngOffset_mm\\xA3\\xBA0,pdoaOffset_deg :0, motionfilter:1, user_cmd:0\nslot:1,addr:6E19\n\\xBB\\xF9\\xD5\\xBE\\xC5\\xE4\\xD6\\xC3\\xB3\\xC9\\xB9\\xA6\n",
+  "paired_after": [
+    "0525006475676E19"
+  ]
+}

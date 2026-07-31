@@ -5,14 +5,13 @@ import math
 from dataclasses import asdict, dataclass
 
 
-DIAGNOSTIC_PREFIX = 'C_KEY_DIAG_V1'
+DIAGNOSTIC_PREFIX = 'C_KEY_DIAG_V2'
 DIAGNOSTIC_FIELDS = (
-    'timestamp_ms', 'sequence', 'tag_id', 'accepted_id', 'link_ok',
-    'valid_mask', 'measurement_ready', 'pose_valid', 'raw_a0_mm',
-    'raw_a1_mm', 'corrected_a0_mm', 'corrected_a1_mm',
-    'filtered_a0_mm', 'filtered_a1_mm', 'x_m', 'y_m', 'boundary_m',
-    'angle_deg', 'residual_m', 'state', 'events', 'accepted_frames',
-    'rejected_frames',
+    'timestamp_ms', 'sequence', 'tag_address', 'tag_id', 'accepted_id',
+    'link_ok', 'measurement_ready', 'pose_valid', 'raw_distance_cm',
+    'raw_angle_deg', 'corrected_distance_mm', 'filtered_distance_mm',
+    'filtered_angle_deg', 'x_m', 'y_m', 'boundary_m', 'state', 'events',
+    'accepted_frames', 'rejected_frames',
 )
 
 
@@ -24,23 +23,20 @@ class TelemetryParseError(ValueError):
 class DiagnosticFrame:
     timestamp_ms: int
     sequence: int
+    tag_address: int
     tag_id: int
     accepted_id: int
     link_ok: bool
-    valid_mask: int
     measurement_ready: bool
     pose_valid: bool
-    raw_a0_mm: int
-    raw_a1_mm: int
-    corrected_a0_mm: float
-    corrected_a1_mm: float
-    filtered_a0_mm: float
-    filtered_a1_mm: float
+    raw_distance_cm: int
+    raw_angle_deg: float
+    corrected_distance_mm: float
+    filtered_distance_mm: float
+    filtered_angle_deg: float
     x_m: float
     y_m: float
     boundary_m: float
-    angle_deg: float
-    residual_m: float
     state: str
     events: int
     accepted_frames: int
@@ -106,27 +102,24 @@ def parse_diagnostic_line(line: str) -> DiagnosticFrame | None:
     return DiagnosticFrame(
         timestamp_ms=_parse_int(row[1], 'timestamp_ms'),
         sequence=_parse_int(row[2], 'sequence'),
-        tag_id=_parse_int(row[3], 'tag_id'),
-        accepted_id=_parse_int(row[4], 'accepted_id'),
-        link_ok=_parse_bool(row[5], 'link_ok'),
-        valid_mask=_parse_int(row[6], 'valid_mask'),
+        tag_address=_parse_int(row[3], 'tag_address'),
+        tag_id=_parse_int(row[4], 'tag_id'),
+        accepted_id=_parse_int(row[5], 'accepted_id'),
+        link_ok=_parse_bool(row[6], 'link_ok'),
         measurement_ready=_parse_bool(row[7], 'measurement_ready'),
         pose_valid=_parse_bool(row[8], 'pose_valid'),
-        raw_a0_mm=_parse_int(row[9], 'raw_a0_mm'),
-        raw_a1_mm=_parse_int(row[10], 'raw_a1_mm'),
-        corrected_a0_mm=_parse_float(row[11], 'corrected_a0_mm'),
-        corrected_a1_mm=_parse_float(row[12], 'corrected_a1_mm'),
-        filtered_a0_mm=_parse_float(row[13], 'filtered_a0_mm'),
-        filtered_a1_mm=_parse_float(row[14], 'filtered_a1_mm'),
-        x_m=_parse_float(row[15], 'x_m'),
-        y_m=_parse_float(row[16], 'y_m'),
-        boundary_m=_parse_float(row[17], 'boundary_m'),
-        angle_deg=_parse_float(row[18], 'angle_deg'),
-        residual_m=_parse_float(row[19], 'residual_m'),
-        state=row[20].strip(),
-        events=_parse_int(row[21], 'events'),
-        accepted_frames=_parse_int(row[22], 'accepted_frames'),
-        rejected_frames=_parse_int(row[23], 'rejected_frames'),
+        raw_distance_cm=_parse_int(row[9], 'raw_distance_cm'),
+        raw_angle_deg=_parse_float(row[10], 'raw_angle_deg'),
+        corrected_distance_mm=_parse_float(row[11], 'corrected_distance_mm'),
+        filtered_distance_mm=_parse_float(row[12], 'filtered_distance_mm'),
+        filtered_angle_deg=_parse_float(row[13], 'filtered_angle_deg'),
+        x_m=_parse_float(row[14], 'x_m'),
+        y_m=_parse_float(row[15], 'y_m'),
+        boundary_m=_parse_float(row[16], 'boundary_m'),
+        state=row[17].strip(),
+        events=_parse_int(row[18], 'events'),
+        accepted_frames=_parse_int(row[19], 'accepted_frames'),
+        rejected_frames=_parse_int(row[20], 'rejected_frames'),
     )
 
 

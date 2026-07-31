@@ -193,3 +193,93 @@ bool c_key_pipeline_process(c_key_pipeline_t *pipeline,
     update_output_state(pipeline, output);
     return true;
 }
+
+bool c_key_pipeline_process_pdoa(c_key_pipeline_t *pipeline,
+                                 const c_key_pdoa_input_t *input,
+                                 c_key_pipeline_output_t *output)
+{
+    if (pipeline == NULL || input == NULL || output == NULL) {
+        return false;
+    }
+
+    memset(output, 0, sizeof(*output));
+    output->tag_id = input->tag_id;
+    c_key_state_input_t state_input = {
+        .signal_present = input->signal_present,
+        .measurement_valid = false,
+        .tag_id = input->tag_id,
+        .accepted_id = pipeline->config.accepted_id,
+    };
+
+    if (!input->signal_present) {
+        c_key_angle_filter_reset(&pipeline->angle_filter);
+        output->events =
+            c_key_state_machine_update(&pipeline->state_machine, &state_input);
+        update_output_state(pipeline, output);
+        return true;
+    }
+
+    const float corrected_distance_m =
+        input->distance_m * pipeline->config.distance_scale_factors[0] +
+        pipeline->config.distance_offsets_m[0];
+    const float corrected_angle_deg =
+        input->angle_deg - pipeline->config.front_angle_offset_deg;
+    output->corrected_distances_m[0] = corrected_distance_m;
+
+    const bool new_sample =
+        !pipeline->sample_seen[0] ||
+        input->now_ms != pipeline->last_timestamps_ms[0] ||
+        input->sequence != pipeline->last_sequences[0];
+    bool distance_valid = pipeline->filter_valid[0];
+    if (new_sample) {
+        distance_valid =
+            input->measurement_valid &&
+            isfinite(corrected_angle_deg) &&
+            fabsf(corrected_angle_deg) <= 180.0f &&
+            c_key_distance_filter_push(&pipeline->filters[0],
+                                       corrected_distance_m,
+                                       pipeline->config.minimum_distance_m,
+                                       pipeline->config.maximum_distance_m,
+                                       &pipeline->filtered_distances_m[0]);
+        pipeline->filter_valid[0] = distance_valid;
+        pipeline->sample_seen[0] = true;
+        pipeline->last_timestamps_ms[0] = input->now_ms;
+        pipeline->last_sequences[0] = input->sequence;
+    }
+    output->filtered_distances_m[0] = pipeline->filtered_distances_m[0];
+    output->measurement_ready = distance_valid;
+
+    float filtered_angle_deg = 0.0f;
+    if (distance_valid &&
+        c_key_angle_filter_push(&pipeline->angle_filter,
+                                corrected_angle_deg,
+                                &filtered_angle_deg)) {
+        const float radians =
+            filtered_angle_deg * (3.14159265358979323846f / 180.0f);
+        output->pose.position.x_m =
+            pipeline->config.door_center.x_m +
+            pipeline->filtered_distances_m[0] * sinf(radians);
+        output->pose.position.y_m =
+            pipeline->config.door_center.y_m +
+            pipeline->filtered_distances_m[0] * cosf(radians);
+        output->pose.center_distance_m = pipeline->filtered_distances_m[0];
+        output->pose.boundary_distance_m =
+            fmaxf(0.0f,
+                  pipeline->filtered_distances_m[0] -
+                      pipeline->config.door_radius_m);
+        output->pose.angle_deg = filtered_angle_deg;
+        output->pose.residual_rms_m = 0.0f;
+        output->pose_valid = true;
+        state_input.measurement_valid = true;
+        state_input.boundary_distance_m = output->pose.boundary_distance_m;
+        state_input.angle_deg = output->pose.angle_deg;
+    }
+
+    if (!output->pose_valid) {
+        c_key_angle_filter_reset(&pipeline->angle_filter);
+    }
+    output->events =
+        c_key_state_machine_update(&pipeline->state_machine, &state_input);
+    update_output_state(pipeline, output);
+    return true;
+}

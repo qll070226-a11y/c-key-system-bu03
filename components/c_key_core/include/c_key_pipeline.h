@@ -31,6 +31,16 @@ typedef struct {
 } c_key_pipeline_input_t;
 
 typedef struct {
+    bool signal_present;
+    bool measurement_valid;
+    uint8_t tag_id;
+    uint32_t now_ms;
+    uint16_t sequence;
+    float distance_m;
+    float angle_deg;
+} c_key_pdoa_input_t;
+
+typedef struct {
     bool measurement_ready;
     bool pose_valid;
     uint8_t tag_id;
@@ -63,5 +73,9 @@ bool c_key_pipeline_set_accepted_id(c_key_pipeline_t *pipeline, uint8_t accepted
 bool c_key_pipeline_process(c_key_pipeline_t *pipeline,
                             const c_key_pipeline_input_t *input,
                             c_key_pipeline_output_t *output);
+
+bool c_key_pipeline_process_pdoa(c_key_pipeline_t *pipeline,
+                                 const c_key_pdoa_input_t *input,
+                                 c_key_pipeline_output_t *output);
 
 #endif

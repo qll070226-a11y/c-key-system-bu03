@@ -11,6 +11,7 @@ int run_pipeline_tests(void);
 int run_display_tests(void);
 int run_bu03_uart2_tests(void);
 int run_bu03_twr_usb_tests(void);
+int run_bu04_pdoa_tests(void);
 int run_bu03_bridge_tests(void);
 int run_contest_scenario_tests(void);
 int run_telemetry_tests(void);
@@ -195,6 +196,7 @@ int main(void)
     failures += run_display_tests();
     failures += run_bu03_uart2_tests();
     failures += run_bu03_twr_usb_tests();
+    failures += run_bu04_pdoa_tests();
     failures += run_bu03_bridge_tests();
     failures += run_contest_scenario_tests();
     failures += run_telemetry_tests();

@@ -10,8 +10,8 @@ from c_key_debugger.telemetry import (
 
 VALID = (
     'I (1234) C_KEY_DIAG: '
-    'C_KEY_DIAG_V1,1234,42,0,0,1,3,1,1,1430,860,1388.0,811.0,'
-    '1401.0,824.0,0.250,1.800,1.500,8.00,0.030,WELCOME,2,42,3'
+    'C_KEY_DIAG_V2,1234,42,28185,0,0,1,1,1,143,8,1430.0,1412.0,7.50,'
+    '0.184,1.400,1.112,WELCOME,2,42,3'
 )
 
 
@@ -21,9 +21,9 @@ class TelemetryTests(unittest.TestCase):
         self.assertIsNotNone(frame)
         assert frame is not None
         self.assertEqual(frame.sequence, 42)
-        self.assertEqual(frame.valid_mask, 3)
-        self.assertAlmostEqual(frame.corrected_a0_mm, 1388.0)
-        self.assertAlmostEqual(frame.angle_deg, 8.0)
+        self.assertEqual(frame.tag_address, 0x6E19)
+        self.assertEqual(frame.raw_distance_cm, 143)
+        self.assertAlmostEqual(frame.filtered_angle_deg, 7.5)
         self.assertEqual(frame.state, 'WELCOME')
 
     def test_ignore_unrelated_line(self) -> None:
@@ -31,9 +31,9 @@ class TelemetryTests(unittest.TestCase):
 
     def test_reject_bad_columns_and_non_finite(self) -> None:
         with self.assertRaises(TelemetryParseError):
-            parse_diagnostic_line('C_KEY_DIAG_V1,1,2')
+            parse_diagnostic_line('C_KEY_DIAG_V2,1,2')
         with self.assertRaises(TelemetryParseError):
-            parse_diagnostic_line(VALID.replace('0.030', 'nan'))
+            parse_diagnostic_line(VALID.replace('1.112', 'nan'))
 
     def test_csv_round_trip(self) -> None:
         frame = parse_diagnostic_line(VALID)

@@ -90,9 +90,51 @@ static void test_scale_and_offset_calibration(void)
     PCHECK(!c_key_pipeline_init(&pipeline, &config));
 }
 
+static void test_pdoa_direct_pose(void)
+{
+    c_key_pipeline_config_t config = make_config();
+    config.front_angle_offset_deg = 5.0f;
+    c_key_pipeline_t pipeline;
+    PCHECK(c_key_pipeline_init(&pipeline, &config));
+
+    const c_key_pdoa_input_t input = {
+        .signal_present = true,
+        .measurement_valid = true,
+        .tag_id = 5U,
+        .now_ms = 1000U,
+        .sequence = 7U,
+        .distance_m = 1.30f,
+        .angle_deg = 35.0f,
+    };
+    c_key_pipeline_output_t output;
+    PCHECK(c_key_pipeline_process_pdoa(&pipeline, &input, &output));
+    PCHECK(output.measurement_ready);
+    PCHECK(output.pose_valid);
+    PCHECK(fabsf(output.pose.center_distance_m - 1.30f) < 1.0e-3f);
+    PCHECK(fabsf(output.pose.boundary_distance_m - 1.00f) < 1.0e-3f);
+    PCHECK(fabsf(output.pose.angle_deg - 30.0f) < 1.0e-3f);
+    PCHECK(fabsf(output.pose.position.x_m - 0.65f) < 1.0e-3f);
+    PCHECK(fabsf(output.pose.position.y_m - 1.125833f) < 1.0e-3f);
+    PCHECK(output.state == C_KEY_STATE_WELCOME);
+
+    c_key_pdoa_input_t missing = input;
+    missing.signal_present = false;
+    PCHECK(c_key_pipeline_process_pdoa(&pipeline, &missing, &output));
+    PCHECK(output.state == C_KEY_STATE_NO_KEY);
+    PCHECK(!output.pose_valid);
+
+    c_key_pdoa_input_t invalid = input;
+    invalid.measurement_valid = false;
+    invalid.now_ms = 1001U;
+    PCHECK(c_key_pipeline_process_pdoa(&pipeline, &invalid, &output));
+    PCHECK(output.state == C_KEY_STATE_FAULT);
+    PCHECK(!output.pose_valid);
+}
+
 int run_pipeline_tests(void)
 {
     test_scale_and_offset_calibration();
+    test_pdoa_direct_pose();
     c_key_pipeline_config_t config = make_config();
     c_key_pipeline_t pipeline;
     PCHECK(c_key_pipeline_init(&pipeline, &config));

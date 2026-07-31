@@ -13,6 +13,7 @@ gcc -std=c17 -Wall -Wextra -Werror -pedantic ^
     "%ROOT%\components\c_key_core\c_key_display.c" ^
     "%ROOT%\components\c_key_core\bu03_uart2.c" ^
     "%ROOT%\components\c_key_core\bu03_twr_usb.c" ^
+    "%ROOT%\components\c_key_core\bu04_pdoa.c" ^
     "%ROOT%\components\c_key_core\c_key_bu03_bridge.c" ^
     "%ROOT%\components\c_key_core\c_key_telemetry.c" ^
     "%~dp0test_core.c" ^
@@ -20,6 +21,7 @@ gcc -std=c17 -Wall -Wextra -Werror -pedantic ^
     "%~dp0test_display.c" ^
     "%~dp0test_bu03_uart2.c" ^
     "%~dp0test_bu03_twr_usb.c" ^
+    "%~dp0test_bu04_pdoa.c" ^
     "%~dp0test_bu03_bridge.c" ^
     "%~dp0test_contest_scenario.c" ^
     "%~dp0test_telemetry.c" ^

@@ -70,57 +70,48 @@ def summarize(values: Iterable[float]) -> SeriesStats | None:
     )
 
 
-def expected_ranges_mm(
+def expected_distance_mm(
     x_m: float,
     y_m: float,
-    anchor_positions_m: tuple[tuple[float, float], tuple[float, float]],
     anchor_height_cm: float = 0.0,
     tag_height_cm: float = 0.0,
-) -> tuple[float, float]:
+) -> float:
     height_delta_m = (tag_height_cm - anchor_height_cm) / 100.0
-    values = tuple(
-        math.sqrt(
-            (x_m - anchor_x) ** 2
-            + (y_m - anchor_y) ** 2
-            + height_delta_m ** 2
-        ) * 1000.0
-        for anchor_x, anchor_y in anchor_positions_m
-    )
-    return values[0], values[1]
+    return math.sqrt(x_m ** 2 + y_m ** 2 + height_delta_m ** 2) * 1000.0
 
 
 def true_angle_deg(x_m: float, y_m: float) -> float:
     return math.degrees(math.atan2(x_m, y_m))
 
 
-def summarize_capture(
-    capture: CapturePoint,
-    anchor_positions_m: tuple[tuple[float, float], tuple[float, float]],
-) -> list[MetricSummary]:
-    expected_a0, expected_a1 = expected_ranges_mm(
+def summarize_capture(capture: CapturePoint) -> list[MetricSummary]:
+    expected_distance = expected_distance_mm(
         capture.true_x_m,
         capture.true_y_m,
-        anchor_positions_m,
         capture.anchor_height_cm,
         capture.tag_height_cm,
     )
+    expected_angle = true_angle_deg(capture.true_x_m, capture.true_y_m)
     valid_link = [frame for frame in capture.frames if frame.link_ok]
     ready = [frame for frame in capture.frames if frame.measurement_ready]
     poses = [frame for frame in capture.frames if frame.pose_valid]
     definitions: list[
         tuple[str, str, list[DiagnosticFrame], Callable[[DiagnosticFrame], float], float | None]
     ] = [
-        ('A0原始', 'mm', valid_link, lambda f: f.raw_a0_mm, expected_a0),
-        ('A1原始', 'mm', valid_link, lambda f: f.raw_a1_mm, expected_a1),
-        ('A0校正', 'mm', valid_link, lambda f: f.corrected_a0_mm, expected_a0),
-        ('A1校正', 'mm', valid_link, lambda f: f.corrected_a1_mm, expected_a1),
-        ('A0滤波', 'mm', ready, lambda f: f.filtered_a0_mm, expected_a0),
-        ('A1滤波', 'mm', ready, lambda f: f.filtered_a1_mm, expected_a1),
+        ('原始距离', 'mm', valid_link, lambda f: f.raw_distance_cm * 10.0,
+         expected_distance),
+        ('校正距离', 'mm', valid_link, lambda f: f.corrected_distance_mm,
+         expected_distance),
+        ('滤波距离', 'mm', ready, lambda f: f.filtered_distance_mm,
+         expected_distance),
+        ('原始方位角', 'deg', valid_link, lambda f: f.raw_angle_deg,
+         expected_angle),
+        ('滤波方位角', 'deg', poses, lambda f: f.filtered_angle_deg,
+         expected_angle),
         ('X坐标', 'm', poses, lambda f: f.x_m, capture.true_x_m),
         ('Y坐标', 'm', poses, lambda f: f.y_m, capture.true_y_m),
-        ('方位角', 'deg', poses, lambda f: f.angle_deg,
-         true_angle_deg(capture.true_x_m, capture.true_y_m)),
-        ('定位残差', 'm', poses, lambda f: f.residual_m, 0.0),
+        ('门锁边界距离', 'm', poses, lambda f: f.boundary_m,
+         max(math.hypot(capture.true_x_m, capture.true_y_m) - 0.3, 0.0)),
     ]
     return [
         MetricSummary(name, unit, summarize(selector(frame) for frame in frames), reference)
@@ -150,22 +141,16 @@ def _linear_fit(pairs: list[tuple[float, float]]) -> LinearFit:
     )
 
 
-def fit_anchor_calibration(
-    captures: Iterable[CapturePoint],
-    anchor_positions_m: tuple[tuple[float, float], tuple[float, float]],
-) -> tuple[LinearFit, LinearFit]:
-    pairs: tuple[list[tuple[float, float]], list[tuple[float, float]]] = ([], [])
+def fit_distance_calibration(captures: Iterable[CapturePoint]) -> LinearFit:
+    pairs: list[tuple[float, float]] = []
     for capture in captures:
-        expected = expected_ranges_mm(
+        expected = expected_distance_mm(
             capture.true_x_m,
             capture.true_y_m,
-            anchor_positions_m,
             capture.anchor_height_cm,
             capture.tag_height_cm,
         )
         for frame in capture.frames:
-            if not frame.link_ok:
-                continue
-            pairs[0].append((float(frame.raw_a0_mm), expected[0]))
-            pairs[1].append((float(frame.raw_a1_mm), expected[1]))
-    return _linear_fit(pairs[0]), _linear_fit(pairs[1])
+            if frame.link_ok:
+                pairs.append((frame.raw_distance_cm * 10.0, expected))
+    return _linear_fit(pairs)
