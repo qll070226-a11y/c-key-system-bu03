@@ -21,9 +21,6 @@ static bool config_is_valid(const c_key_pipeline_config_t *config)
     if (config == NULL || !positions_are_usable(config->anchor_positions) ||
         !isfinite(config->door_center.x_m) || !isfinite(config->door_center.y_m) ||
         !isfinite(config->door_radius_m) || config->door_radius_m < 0.0f ||
-        !isfinite(config->vertical_separation_m) ||
-        config->vertical_separation_m < 0.0f ||
-        config->vertical_separation_m >= config->maximum_distance_m ||
         !isfinite(config->front_angle_offset_deg) ||
         !isfinite(config->filter_alpha) || config->filter_alpha <= 0.0f ||
         config->filter_alpha > 1.0f ||
@@ -155,26 +152,15 @@ bool c_key_pipeline_process(c_key_pipeline_t *pipeline,
 
     if (all_filters_valid) {
         c_key_anchor_measurement_t filtered[C_KEY_ANCHOR_COUNT];
-        bool horizontal_ranges_valid = true;
         for (size_t i = 0; i < C_KEY_ANCHOR_COUNT; ++i) {
             filtered[i] = corrected[i];
-            const float slant_distance_m = pipeline->filtered_distances_m[i];
-            const float horizontal_squared_m2 =
-                slant_distance_m * slant_distance_m -
-                pipeline->config.vertical_separation_m *
-                    pipeline->config.vertical_separation_m;
-            if (!isfinite(horizontal_squared_m2) || horizontal_squared_m2 < 0.0f) {
-                horizontal_ranges_valid = false;
-                break;
-            }
-            filtered[i].distance_m = sqrtf(horizontal_squared_m2);
+            filtered[i].distance_m = pipeline->filtered_distances_m[i];
             filtered[i].valid = true;
         }
 
         c_key_point_t position;
         float residual = 0.0f;
-        if (horizontal_ranges_valid &&
-            c_key_locate_two_anchors_front(filtered,
+        if (c_key_locate_two_anchors_front(filtered,
                                            pipeline->config.door_center,
                                            pipeline->config.front_angle_offset_deg,
                                            &position,

@@ -96,8 +96,6 @@ static c_key_pipeline_config_t make_pipeline_config(void)
             (float)CONFIG_C_KEY_ANCHOR0_OFFSET_MM * 0.001f,
             (float)CONFIG_C_KEY_ANCHOR1_OFFSET_MM * 0.001f,
         },
-        .vertical_separation_m =
-            (float)CONFIG_C_KEY_VERTICAL_SEPARATION_MM * 0.001f,
         .door_center = {0.0f, 0.0f},
         .door_radius_m = (float)CONFIG_C_KEY_DOOR_RADIUS_MM * 0.001f,
         .front_angle_offset_deg = (float)CONFIG_C_KEY_FRONT_OFFSET_DEG,
@@ -403,12 +401,11 @@ void app_main(void)
              CONFIG_C_KEY_ANCHOR1_X_MM,
              CONFIG_C_KEY_ANCHOR1_Y_MM);
     ESP_LOGI(TAG,
-             "range calibration: A0=%dppm/%dmm A1=%dppm/%dmm vertical=%dmm",
+             "range calibration: A0=%dppm/%dmm A1=%dppm/%dmm",
              CONFIG_C_KEY_ANCHOR0_SCALE_PPM,
              CONFIG_C_KEY_ANCHOR0_OFFSET_MM,
              CONFIG_C_KEY_ANCHOR1_SCALE_PPM,
-             CONFIG_C_KEY_ANCHOR1_OFFSET_MM,
-             CONFIG_C_KEY_VERTICAL_SEPARATION_MM);
+             CONFIG_C_KEY_ANCHOR1_OFFSET_MM);
 
     while (true) {
         const int length = uart_read_bytes((uart_port_t)CONFIG_BU03_UART_NUM,

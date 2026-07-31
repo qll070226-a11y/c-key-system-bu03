@@ -90,44 +90,9 @@ static void test_scale_and_offset_calibration(void)
     PCHECK(!c_key_pipeline_init(&pipeline, &config));
 }
 
-static void test_vertical_separation_compensation(void)
-{
-    c_key_pipeline_config_t config = make_config();
-    config.vertical_separation_m = 0.25f;
-
-    c_key_pipeline_t pipeline;
-    PCHECK(c_key_pipeline_init(&pipeline, &config));
-
-    const c_key_point_t target = {0.15f, 1.40f};
-    c_key_pipeline_input_t input = {
-        .signal_present = true,
-        .tag_id = 5U,
-        .now_ms = 1000U,
-    };
-    for (size_t i = 0; i < C_KEY_ANCHOR_COUNT; ++i) {
-        const float horizontal_range = range_to(target, config.anchor_positions[i]);
-        input.anchors[i].distance_m =
-            hypotf(horizontal_range, config.vertical_separation_m);
-        input.anchors[i].timestamp_ms = 1000U;
-        input.anchors[i].sequence = 1U;
-        input.anchors[i].valid = true;
-    }
-
-    c_key_pipeline_output_t output;
-    PCHECK(c_key_pipeline_process(&pipeline, &input, &output));
-    PCHECK(output.measurement_ready);
-    PCHECK(output.pose_valid);
-    PCHECK(fabsf(output.pose.position.x_m - target.x_m) < 1.0e-3f);
-    PCHECK(fabsf(output.pose.position.y_m - target.y_m) < 1.0e-3f);
-
-    config.vertical_separation_m = -0.01f;
-    PCHECK(!c_key_pipeline_init(&pipeline, &config));
-}
-
 int run_pipeline_tests(void)
 {
     test_scale_and_offset_calibration();
-    test_vertical_separation_compensation();
     c_key_pipeline_config_t config = make_config();
     c_key_pipeline_t pipeline;
     PCHECK(c_key_pipeline_init(&pipeline, &config));

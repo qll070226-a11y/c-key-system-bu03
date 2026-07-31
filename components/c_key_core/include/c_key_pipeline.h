@@ -7,7 +7,6 @@ typedef struct {
     c_key_point_t anchor_positions[C_KEY_ANCHOR_COUNT];
     float distance_scale_factors[C_KEY_ANCHOR_COUNT];
     float distance_offsets_m[C_KEY_ANCHOR_COUNT];
-    float vertical_separation_m;
     c_key_point_t door_center;
     float door_radius_m;
     float front_angle_offset_deg;

@@ -93,14 +93,6 @@ config C_KEY_ANCHOR1_OFFSET_MM
     range -1000 1000
     default 0
 
-config C_KEY_VERTICAL_SEPARATION_MM
-    int "Anchor与Tag天线中心高度差(mm)"
-    range 0 1000
-    default 0
-    help
-        UWB测量三维斜距，双基站定位使用水平距离。
-        此值为Anchor天线中心与Tag天线中心高度差的绝对值。
-
 config C_KEY_DOOR_RADIUS_MM
     int "圆柱边界半径(mm)"
     range 0 300
