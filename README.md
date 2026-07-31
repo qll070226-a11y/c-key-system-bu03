@@ -129,7 +129,14 @@ BU04 baud = 115200
 2026-08-01实机联调：COM21烧录和SHA校验成功；BU04 UART2接入后8秒收到356条
 C_KEY_DIAG_V2，解析错误0，标签地址、距离、角度、坐标和状态机均有效。
 
+题目第1项已完成3.00m一键启动专项验收：15.010秒收到718条连续ID帧，地址
+0x6E19、钥匙ID/门锁ID均为0000，平均47.83Hz、最大间断0.151秒、解析错误0，
+TFT人工确认显示钥匙ID、门锁ID和“匹配成功”。
+
 接手开发先阅读 [HANDOFF.md](HANDOFF.md) 和
 [标定与验收](docs/CALIBRATION_AND_ACCEPTANCE.md)。
 
 协议实现与实测帧见 [BU04 PDOA协议](docs/BU04_PDOA_PROTOCOL.md)。
+
+题目第1项的3米一键启动与持续ID通信使用
+[专项验收步骤](docs/REQUIREMENT_1_ACCEPTANCE.md)。

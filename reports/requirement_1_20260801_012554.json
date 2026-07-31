@@ -1,0 +1,35 @@
+{
+  "result": "通过",
+  "tested_at": "2026-08-01T01:25:54+08:00",
+  "port": "COM21",
+  "physical_distance_m": 3.0,
+  "expected_address": "0x6E19",
+  "expected_id": 0,
+  "display_confirmed": true,
+  "listener_to_first_identity_s": 10.2383850000042,
+  "observed_duration_s": 15.01,
+  "diagnostic_frames": 718,
+  "expected_identity_frames": 718,
+  "parse_errors": 0,
+  "frame_rate_hz": 47.834776815456365,
+  "maximum_gap_s": 0.15096190001349896,
+  "median_raw_distance_m": 3.02,
+  "minimum_raw_distance_m": 2.94,
+  "maximum_raw_distance_m": 3.24,
+  "states": [
+    "SENSING"
+  ],
+  "checks": {
+    "卷尺布置距离不小于3m": true,
+    "在启动窗口内收到数字钥匙ID": true,
+    "无线标签短地址持续为期望值": true,
+    "逻辑钥匙ID与门锁ID持续匹配": true,
+    "连续观察时间达到设定值": true,
+    "持续帧率达到下限": true,
+    "通信最大中断不超过上限": true,
+    "遥测解析无错误": true,
+    "测距结果与3米布置基本一致": true,
+    "TFT已人工确认显示钥匙ID和认证结果": true
+  },
+  "expected_tft": "钥匙ID 0000 / 门锁ID 0000 / 身份认证 匹配成功"
+}

@@ -30,6 +30,9 @@ PDOA 分支继续使用 A0/A1 两圆定位参数。
 - 上位机升级为 PDOA 距离/角度诊断，13项测试通过。
 - C 核心测试通过。
 - ESP-IDF 5.5.4 完整构建通过，镜像 build/c_key_door.bin 为0x43d00字节。
+- 题目第1项3.00m一键启动与持续ID通信专项验收通过：15.010秒718帧，
+  地址0x6E19和逻辑ID 0000全程一致，平均47.83Hz、最大间断0.151秒、
+  解析错误0，TFT人工确认钥匙ID/门锁ID和匹配成功。
 
 尚未完成：
 
@@ -141,5 +144,6 @@ BU04 原始距离单位为 cm，原始角度单位为 deg。当前流程：
 - [标定与验收](docs/CALIBRATION_AND_ACCEPTANCE.md)
 - [上位机](host/README.md)
 - [BU04 PDOA Hex协议](docs/BU04_PDOA_PROTOCOL.md)
+- [第1项3米ID通信验收](docs/REQUIREMENT_1_ACCEPTANCE.md)
 - [旧BU03协议回退资料](docs/BU03_PROTOCOL.md)
 - [厂家资料](docs/reference/README.md)
