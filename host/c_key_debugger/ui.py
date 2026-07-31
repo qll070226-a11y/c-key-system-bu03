@@ -413,10 +413,18 @@ class MainWindow(QtWidgets.QMainWindow):
     def refresh_ports(self) -> None:
         current = self.port_combo.currentData()
         self.port_combo.clear()
+        preferred = ''
         for device, description in available_ports():
             self.port_combo.addItem(f'{device}  {description}', device)
+            normalized = description.casefold()
+            if 'ch343' in normalized or 'enhanced-serial' in normalized:
+                preferred = device
         if current:
             index = self.port_combo.findData(current)
+            if index >= 0:
+                self.port_combo.setCurrentIndex(index)
+        elif preferred:
+            index = self.port_combo.findData(preferred)
             if index >= 0:
                 self.port_combo.setCurrentIndex(index)
         if self.port_combo.count() == 0:

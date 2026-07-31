@@ -33,8 +33,6 @@ PDOA 分支继续使用 A0/A1 两圆定位参数。
 
 尚未完成：
 
-- 当前 ESP32 COM 口未接入电脑，因此 PDOA 镜像尚未烧录。
-- BU04 UART2_TX 到 ESP32 GPIO18 的实时整机链路尚待验证。
 - 正式12V电池、两路 DCDC、最终洞洞板和装箱未验收。
 - 最终距离比例/零偏和安装角度零偏尚未标定。
 - 动态进出、ID失配、掉线、重启和30分钟老化未完成。
@@ -45,9 +43,15 @@ PDOA 分支继续使用 A0/A1 两圆定位参数。
 |---|---:|---|
 | BU04 AT/烧写口 | COM14 | CH340，配置口 |
 | BU04测距数据口 | COM25 | VID 0483:5740，二进制数据 |
-| ESP32-S3 COM口 | 未接入 | 历史曾为COM21 |
+| ESP32-S3 COM口 | COM21 | CH343，烧录、日志和上位机 |
 
 端口会变化，不要只按编号判断设备。上位机连接 ESP32 COM 口，不连接 COM25。
+
+2026-08-01 已将提交5cc877b对应固件烧录至COM21，Bootloader、分区表和应用镜像
+均通过SHA校验。BU04 UART2_TX接GPIO18后，8秒收到356条C_KEY_DIAG_V2，
+解析错误0；首尾帧标签地址均为0x6E19，measurement_ready=1、pose_valid=1，
+距离、角度、二维位置和UNLOCKED状态均正常。该结果证明整条实机数据链已打通，
+但不代替最终距离和角度精度验收。
 
 BU04 排针：
 
@@ -118,9 +122,8 @@ BU04 原始距离单位为 cm，原始角度单位为 deg。当前流程：
 
 ## 7. 接手后的第一步
 
-1. 用数据线接 ESP32 左侧丝印 COM 的 Type-C 口。
-2. 通过设备管理器确认新增 CH343 端口，不要误用 COM25。
-3. 运行：
+1. 通过设备管理器确认 ESP32 CH343 端口，不要误用 COM25。
+2. 运行：
 
 ~~~powershell
 .\tests\run_host_tests.bat
@@ -128,10 +131,9 @@ BU04 原始距离单位为 cm，原始角度单位为 deg。当前流程：
 .\flash_idf.bat COMxx
 ~~~
 
-4. 接 BU04 UART2_TX 到 GPIO18并共地。
-5. 在 ESP32 串口查看 pdoa_ok 增长、pdoa_bad 不增长。
-6. 运行 host/check_serial.bat COMxx --seconds 8，确认 diagnostics>0。
-7. 启动上位机采集0度和1/2/3m数据，再做±15/±30/±45度测试。
+3. 在 ESP32 串口查看 pdoa_ok 增长、pdoa_bad 不增长。
+4. 运行 host/check_serial.bat COMxx --seconds 8，确认 diagnostics>0。
+5. 启动上位机采集0度和1/2/3m数据，再做±15/±30/±45度测试。
 
 ## 8. 资料入口
 

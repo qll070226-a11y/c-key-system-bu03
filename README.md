@@ -32,7 +32,7 @@ BU04 PDOA Base
 |---|---:|---|
 | BU04 AT/烧写口 | COM14 | 配置与配对 |
 | BU04 USB测距数据口 | COM25 | PC抓取31字节二进制帧 |
-| ESP32-S3 CH343 COM口 | 当前未接入 | 烧录、日志、上位机 |
+| ESP32-S3 CH343 COM口 | COM21 | 烧录、日志、上位机 |
 
 上位机必须连接 ESP32 诊断串口，不能直接连接 COM25。正式整机由 BU04
 UART2_TX 接 ESP32 GPIO18。
@@ -123,10 +123,11 @@ BU04 baud = 115200
 
 待完成：
 
-- 重新接入 ESP32 COM 口并烧录当前 PDOA 镜像；
-- BU04 UART2_TX 到 GPIO18 的整机实时联调；
 - 正式供电、装箱后的距离和角度标定；
 - 动态进出、ID失配、掉线、重启和 30 分钟老化验收。
+
+2026-08-01实机联调：COM21烧录和SHA校验成功；BU04 UART2接入后8秒收到356条
+C_KEY_DIAG_V2，解析错误0，标签地址、距离、角度、坐标和状态机均有效。
 
 接手开发先阅读 [HANDOFF.md](HANDOFF.md) 和
 [标定与验收](docs/CALIBRATION_AND_ACCEPTANCE.md)。
