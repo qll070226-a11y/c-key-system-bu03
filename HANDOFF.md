@@ -65,8 +65,8 @@
 当前Anchor天线中心暂按以下坐标建模：
 
 ```text
-Anchor 0 = (-240, 0) mm
-Anchor 1 = (+240, 0) mm
+Anchor 0 = (-220, 0) mm
+Anchor 1 = (+220, 0) mm
 门锁中心 = (0, 0)
 门锁正前方 = +Y
 圆柱半径 = 300 mm
@@ -79,7 +79,7 @@ A0 corrected_mm = raw_mm * 1.031273 - 87
 A1 corrected_mm = raw_mm * 0.995319 - 45
 ```
 
-参数已经写入`sdkconfig.defaults`和当前`sdkconfig`。这些参数来自临时摆放，不得直接作为最终作品标定结果。
+两Anchor天线中心间距已于2026-07-31调整为440mm，参数已经写入`sdkconfig.defaults`和当前`sdkconfig`。距离校正仍来自此前临时摆放，机械结构固定后必须重新标定，不得直接作为最终作品标定结果。
 
 ## 5. 已知角度风险
 

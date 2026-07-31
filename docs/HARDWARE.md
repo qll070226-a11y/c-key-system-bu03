@@ -12,6 +12,8 @@ BU03 Tag 0  <---- UWB ---->  Anchor 0 ---- UART2_TX ----> ESP32-S3 GPIO18
 
 Anchor 0和Anchor 1都位于门锁圆柱体内。只有Anchor 0连接ESP32：UART2输出多Anchor距离，主USB完整TWR帧输出真实Tag ID。门锁必须同时收到近期距离帧和近期真实ID才允许认证。
 
+当前几何参数按两块BU03天线中心左右对称布置：Anchor 0为`(-220, 0)mm`，Anchor 1为`(+220, 0)mm`，天线中心间距440mm。坐标原点是门锁圆柱中心，正前方为+Y。若实际装配后不是严格对称，必须分别实测两个天线中心坐标，不能只填写总间距。
+
 ## GPIO表
 
 | 功能 | ESP32-S3 GPIO | 连接说明 |

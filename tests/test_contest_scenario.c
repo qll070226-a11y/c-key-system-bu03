@@ -30,8 +30,8 @@ static c_key_pipeline_config_t make_config(void)
 {
     return (c_key_pipeline_config_t){
         .anchor_positions = {
-            {-0.2400f, 0.0000f},
-            {0.2400f, 0.0000f},
+            {-0.2200f, 0.0000f},
+            {0.2200f, 0.0000f},
         },
         .distance_scale_factors = {1.0f, 1.0f},
         .door_center = {0.0f, 0.0f},
