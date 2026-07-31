@@ -10,9 +10,11 @@ from .telemetry import DIAGNOSTIC_FIELDS, DiagnosticFrame, frame_from_csv_mappin
 
 
 METADATA_FIELDS = (
-    'host_time_iso', 'point_label', 'true_x_m', 'true_y_m', 'height_cm', 'notes',
+    'host_time_iso', 'point_label', 'true_x_m', 'true_y_m',
+    'anchor_height_cm', 'tag_height_cm', 'notes',
 )
 SESSION_FIELDS = METADATA_FIELDS + DIAGNOSTIC_FIELDS
+LEGACY_HEIGHT_FIELD = 'height_cm'
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,7 +22,8 @@ class PointMetadata:
     label: str = ''
     true_x_m: float = 0.0
     true_y_m: float = 0.0
-    height_cm: float = 0.0
+    anchor_height_cm: float = 0.0
+    tag_height_cm: float = 0.0
     notes: str = ''
 
 
@@ -50,7 +53,8 @@ class SessionRecorder:
             'point_label': metadata.label,
             'true_x_m': metadata.true_x_m,
             'true_y_m': metadata.true_y_m,
-            'height_cm': metadata.height_cm,
+            'anchor_height_cm': metadata.anchor_height_cm,
+            'tag_height_cm': metadata.tag_height_cm,
             'notes': metadata.notes,
         }
         row.update(dict(zip(DIAGNOSTIC_FIELDS, frame.as_csv_values(), strict=True)))
@@ -74,15 +78,24 @@ class SessionRecorder:
 def load_session(path: str | Path) -> Iterator[tuple[PointMetadata, DiagnosticFrame]]:
     with Path(path).open('r', newline='', encoding='utf-8-sig') as file:
         reader = csv.DictReader(file)
-        missing = [field for field in SESSION_FIELDS if field not in (reader.fieldnames or [])]
+        fields = set(reader.fieldnames or [])
+        required = {
+            'host_time_iso', 'point_label', 'true_x_m', 'true_y_m', 'notes',
+            *DIAGNOSTIC_FIELDS,
+        }
+        missing = sorted(required - fields)
+        if 'tag_height_cm' not in fields and LEGACY_HEIGHT_FIELD not in fields:
+            missing.append('tag_height_cm/height_cm')
         if missing:
             raise ValueError(f'会话文件缺少字段: {missing}')
         for row in reader:
+            tag_height = row.get('tag_height_cm', row.get(LEGACY_HEIGHT_FIELD, '0'))
             metadata = PointMetadata(
                 label=row['point_label'],
                 true_x_m=float(row['true_x_m']),
                 true_y_m=float(row['true_y_m']),
-                height_cm=float(row['height_cm']),
+                anchor_height_cm=float(row.get('anchor_height_cm') or 0.0),
+                tag_height_cm=float(tag_height or 0.0),
                 notes=row['notes'],
             )
             yield metadata, frame_from_csv_mapping(row)

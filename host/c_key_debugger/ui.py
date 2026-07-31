@@ -20,7 +20,7 @@ from .serial_io import ReplayWorker, SerialWorker, available_ports
 from .telemetry import DiagnosticFrame, TelemetryParseError, parse_diagnostic_line
 
 
-ANCHORS = ((-0.24, 0.0), (0.24, 0.0))
+ANCHORS = ((-0.22, 0.0), (0.22, 0.0))
 PLOT_HISTORY = 360
 
 
@@ -262,23 +262,33 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.setContentsMargins(8, 8, 8, 8)
         form_box = QtWidgets.QGroupBox('真实测点')
         form = QtWidgets.QGridLayout(form_box)
+        for column in (1, 3, 5, 7, 9, 11):
+            form.setColumnStretch(column, 1)
         self.point_label = QtWidgets.QLineEdit('P1')
         self.true_x = self._spin(-10.0, 10.0, 0.0)
         self.true_y = self._spin(-1.0, 20.0, 1.3)
-        self.height = self._spin(0.0, 300.0, 0.0, 1)
+        self.anchor_height = self._spin(0.0, 300.0, 0.0, 1)
+        self.tag_height = self._spin(0.0, 300.0, 0.0, 1)
+        self.anchor_height.setSingleStep(0.5)
+        self.tag_height.setSingleStep(0.5)
         self.sample_target = QtWidgets.QComboBox()
         self.sample_target.addItems(('100', '300', '500', '1000'))
         self.sample_target.setCurrentText('300')
         self.point_notes = QtWidgets.QLineEdit()
-        self.point_notes.setPlaceholderText('姿态、离地高度、遮挡和布局变化')
-        fields = (
+        self.point_notes.setPlaceholderText('姿态、遮挡和布局变化')
+        first_row = (
             ('测点名', self.point_label), ('真实X / m', self.true_x),
-            ('真实Y / m', self.true_y), ('离地高度 / cm', self.height),
-            ('样本数', self.sample_target), ('备注', self.point_notes),
+            ('真实Y / m', self.true_y), ('样本数', self.sample_target),
         )
-        for index, (label, widget) in enumerate(fields):
+        for index, (label, widget) in enumerate(first_row):
             form.addWidget(QtWidgets.QLabel(label), 0, index * 2)
             form.addWidget(widget, 0, index * 2 + 1)
+        form.addWidget(QtWidgets.QLabel('基站高度 / cm'), 1, 0)
+        form.addWidget(self.anchor_height, 1, 1)
+        form.addWidget(QtWidgets.QLabel('标签高度 / cm'), 1, 2)
+        form.addWidget(self.tag_height, 1, 3)
+        form.addWidget(QtWidgets.QLabel('备注'), 1, 4)
+        form.addWidget(self.point_notes, 1, 5, 1, 7)
 
         self.capture_start = self._icon_button(
             '开始采集', QtWidgets.QStyle.StandardPixmap.SP_MediaPlay
@@ -297,13 +307,13 @@ class MainWindow(QtWidgets.QMainWindow):
             '导出汇总', QtWidgets.QStyle.StandardPixmap.SP_DialogSaveButton
         )
         self.export_button.clicked.connect(self.export_summary)
-        form.addWidget(self.capture_start, 1, 0, 1, 2)
-        form.addWidget(self.capture_stop, 1, 2, 1, 2)
-        form.addWidget(self.fit_button, 1, 4, 1, 2)
-        form.addWidget(self.export_button, 1, 6, 1, 2)
+        form.addWidget(self.capture_start, 2, 0, 1, 2)
+        form.addWidget(self.capture_stop, 2, 2, 1, 2)
+        form.addWidget(self.fit_button, 2, 4, 1, 2)
+        form.addWidget(self.export_button, 2, 6, 1, 2)
         self.capture_progress = QtWidgets.QProgressBar()
         self.capture_progress.setRange(0, 100)
-        form.addWidget(self.capture_progress, 1, 8, 1, 4)
+        form.addWidget(self.capture_progress, 2, 8, 1, 4)
         layout.addWidget(form_box)
 
         splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
@@ -318,9 +328,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.summary_table.setEditTriggers(
             QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers
         )
-        self.capture_table = QtWidgets.QTableWidget(0, 6)
+        self.capture_table = QtWidgets.QTableWidget(0, 7)
         self.capture_table.setHorizontalHeaderLabels(
-            ('测点', '真实X/m', '真实Y/m', '高度/cm', '有效帧', '备注')
+            ('测点', '真实X/m', '真实Y/m', '基站高/cm', '标签高/cm', '有效帧', '备注')
         )
         self.capture_table.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeMode.Stretch
@@ -558,7 +568,8 @@ class MainWindow(QtWidgets.QMainWindow):
             label=self.point_label.text().strip(),
             true_x_m=self.true_x.value(),
             true_y_m=self.true_y.value(),
-            height_cm=self.height.value(),
+            anchor_height_cm=self.anchor_height.value(),
+            tag_height_cm=self.tag_height.value(),
             notes=self.point_notes.text().strip(),
         )
 
@@ -608,7 +619,8 @@ class MainWindow(QtWidgets.QMainWindow):
             label=label,
             true_x_m=metadata.true_x_m,
             true_y_m=metadata.true_y_m,
-            height_cm=metadata.height_cm,
+            anchor_height_cm=metadata.anchor_height_cm,
+            tag_height_cm=metadata.tag_height_cm,
             notes=metadata.notes,
         )
         self._capture_target = int(self.sample_target.currentText())
@@ -652,7 +664,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.capture_table.insertRow(row)
         values = (
             capture.label, f'{capture.true_x_m:.3f}', f'{capture.true_y_m:.3f}',
-            f'{capture.height_cm:.1f}', str(len(capture.frames)), capture.notes,
+            f'{capture.anchor_height_cm:.1f}', f'{capture.tag_height_cm:.1f}',
+            str(len(capture.frames)), capture.notes,
         )
         for column, value in enumerate(values):
             self.capture_table.setItem(row, column, QtWidgets.QTableWidgetItem(value))
@@ -730,7 +743,8 @@ class MainWindow(QtWidgets.QMainWindow):
         with Path(path).open('w', newline='', encoding='utf-8-sig') as file:
             writer = csv.writer(file)
             writer.writerow((
-                'point', 'true_x_m', 'true_y_m', 'height_cm', 'metric', 'unit',
+                'point', 'true_x_m', 'true_y_m',
+                'anchor_height_cm', 'tag_height_cm', 'metric', 'unit',
                 'count', 'mean', 'median', 'stdev', 'mad',
                 'reference', 'median_error',
             ))
@@ -739,7 +753,8 @@ class MainWindow(QtWidgets.QMainWindow):
                     stats = metric.stats
                     writer.writerow((
                         capture.label, capture.true_x_m, capture.true_y_m,
-                        capture.height_cm, metric.name, metric.unit,
+                        capture.anchor_height_cm, capture.tag_height_cm,
+                        metric.name, metric.unit,
                         stats.count if stats else 0,
                         stats.mean if stats else '',
                         stats.median if stats else '',

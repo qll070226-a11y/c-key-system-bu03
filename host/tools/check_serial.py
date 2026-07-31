@@ -20,6 +20,7 @@ def main() -> int:
     diagnostics = 0
     parse_errors = 0
     first = None
+    last = None
     samples: deque[str] = deque(maxlen=12)
     with serial.Serial(args.port, args.baud, timeout=0.2) as port:
         deadline = time.monotonic() + args.seconds
@@ -37,6 +38,7 @@ def main() -> int:
                 continue
             if frame is not None:
                 diagnostics += 1
+                last = frame
                 if first is None:
                     first = frame
 
@@ -49,6 +51,15 @@ def main() -> int:
             f'first: seq={first.sequence} mask=0x{first.valid_mask:02X} '
             f'raw=({first.raw_a0_mm},{first.raw_a1_mm}) '
             f'state={first.state}'
+        )
+        print(
+            f'last: seq={last.sequence} ready={int(last.measurement_ready)} '
+            f'pose={int(last.pose_valid)} '
+            f'corrected=({last.corrected_a0_mm:.1f},{last.corrected_a1_mm:.1f})mm '
+            f'filtered=({last.filtered_a0_mm:.1f},{last.filtered_a1_mm:.1f})mm '
+            f'xy=({last.x_m:+.3f},{last.y_m:+.3f})m '
+            f'angle={last.angle_deg:+.2f}deg residual={last.residual_m:.3f}m '
+            f'state={last.state}'
         )
     else:
         print('last serial lines:')

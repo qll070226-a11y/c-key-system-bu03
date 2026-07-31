@@ -1,0 +1,34 @@
+{
+  "port": "COM24",
+  "baud": 115200,
+  "captured_at": "2026-07-31T21:03:40+08:00",
+  "commands": [
+    {
+      "command": "AT+GETVER",
+      "response_hex": "0d 0d 67 65 74 76 65 72 20 73 6f 66 74 77 61 72 65 3a 56 31 2e 30 2e 30 0d 0a 0a 4f 4b 0d 0a",
+      "response_display": "\r\rgetver software:V1.0.0\r\n\nOK\r\n"
+    },
+    {
+      "command": "AT+GETCFG",
+      "response_hex": "0d 0d 67 65 74 63 66 67 20 49 44 3a 30 2c 20 52 6f 6c 65 3a 31 2c 20 43 48 3a 31 2c 20 52 61 74 65 3a 31 0d 0a 0a 4f 4b 0d 0a",
+      "response_display": "\r\rgetcfg ID:0, Role:1, CH:1, Rate:1\r\n\nOK\r\n"
+    },
+    {
+      "command": "AT+GETDEV",
+      "response_hex": "0d 0d 67 65 74 64 65 76 20 63 61 70 3a 31 30 20 61 6e 6e 64 65 6c 61 79 3a 31 36 33 33 36 2c 20 6b 61 6c 6d 61 6e 5f 65 6e 61 62 6c 65 3a 31 2c 20 6b 61 6c 6d 61 6e 5f 51 3a 30 2e 30 31 38 2c 20 6b 61 6c 6d 61 6e 5f 52 3a 30 2e 36 34 32 2c 20 70 61 72 61 5f 61 3a 30 2e 39 39 39 39 2c 20 70 61 72 61 5f 62 3a 2d 31 35 30 2e 36 38 2c 20 70 6f 73 5f 65 6e 61 62 6c 65 3a 30 2c 20 70 6f 73 5f 64 69 6d 65 6e 3a 30 0d 0a 0a 4f 4b 0d 0a",
+      "response_display": "\r\rgetdev cap:10 anndelay:16336, kalman_enable:1, kalman_Q:0.018, kalman_R:0.642, para_a:0.9999, para_b:-150.68, pos_enable:0, pos_dimen:0\r\n\nOK\r\n"
+    },
+    {
+      "command": "AT+GETMCUMODE",
+      "response_hex": "0d 0a 45 52 52 0d 0a",
+      "response_display": "\r\nERR\r\n"
+    },
+    {
+      "command": "AT+PDOAGETCFG",
+      "response_hex": "67 0d 74 63 66 67 20 44 6c 69 73 74 3a 31 20 4b 4c 69 73 74 3a 31 20 4e 65 74 3a 31 31 31 31 20 41 6e 63 49 44 3a 36 35 35 33 35 20 52 61 74 65 3a 31 30 30 20 46 69 6c 74 65 72 3a 31 20 55 73 65 72 43 6d 64 3a 30 20 70 64 6f 61 4f 66 66 73 65 74 3a 30 20 72 6e 67 4f 66 66 73 65 74 3a 30 0d 0a 0a 4f 4b 0d 0a",
+      "response_display": "g\rtcfg Dlist:1 KList:1 Net:1111 AncID:65535 Rate:100 Filter:1 UserCmd:0 pdoaOffset:0 rngOffset:0\r\n\nOK\r\n"
+    }
+  ],
+  "initial_rx_hex": "",
+  "initial_rx_display": ""
+}

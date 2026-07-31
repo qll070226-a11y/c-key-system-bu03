@@ -20,8 +20,8 @@ class DemoGenerator:
         true_x = 0.72 * math.sin(phase)
         true_y = 1.65 + 0.70 * math.sin(phase * 0.43)
         true_ranges = (
-            math.hypot(true_x + 0.24, true_y) * 1000.0,
-            math.hypot(true_x - 0.24, true_y) * 1000.0,
+            math.hypot(true_x + 0.22, true_y) * 1000.0,
+            math.hypot(true_x - 0.22, true_y) * 1000.0,
         )
 
         multipath_bias = 155.0 if true_x < -0.20 else 0.0
@@ -39,7 +39,7 @@ class DemoGenerator:
             else:
                 self._filtered[index] += 0.35 * (value - self._filtered[index])
 
-        measured_x = true_x - multipath_bias / 480.0 * max(true_y, 1.0)
+        measured_x = true_x - multipath_bias / 440.0 * max(true_y, 1.0)
         measured_x += self._random.gauss(0.0, 0.025)
         measured_y = true_y + self._random.gauss(0.0, 0.018)
         angle = math.degrees(math.atan2(measured_x, measured_y))

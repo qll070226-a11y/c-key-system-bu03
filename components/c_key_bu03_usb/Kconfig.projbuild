@@ -13,4 +13,12 @@ config C_KEY_BU03_ID_TIMEOUT_MS
     range 100 5000
     default 500
 
+config C_KEY_ALLOW_ID_FALLBACK
+    bool "调试：USB身份缺失时使用门锁拨码ID"
+    default n
+    help
+        仅用于主USB身份线尚未接通时调试测距、定位和显示。
+        开启后若没有近期真实Tag ID，固件会临时使用门锁当前拨码ID。
+        该模式不能验证数字钥匙身份，不符合最终验收要求；完成USB接线后必须关闭。
+
 endmenu

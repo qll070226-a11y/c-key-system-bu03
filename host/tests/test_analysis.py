@@ -1,3 +1,4 @@
+import math
 import unittest
 
 from c_key_debugger.analysis import (
@@ -31,18 +32,47 @@ class AnalysisTests(unittest.TestCase):
         self.assertEqual(result.mad, 1.0)
 
     def test_expected_ranges(self) -> None:
-        ranges = expected_ranges_mm(0.0, 1.0, ((-0.24, 0.0), (0.24, 0.0)))
-        self.assertAlmostEqual(ranges[0], 1028.3968, places=3)
+        ranges = expected_ranges_mm(0.0, 1.0, ((-0.22, 0.0), (0.22, 0.0)))
+        self.assertAlmostEqual(ranges[0], 1023.9141, places=3)
+        self.assertAlmostEqual(ranges[0], ranges[1])
+
+    def test_expected_ranges_include_height_difference(self) -> None:
+        ranges = expected_ranges_mm(
+            0.0,
+            1.0,
+            ((-0.22, 0.0), (0.22, 0.0)),
+            anchor_height_cm=20.0,
+            tag_height_cm=50.0,
+        )
+        expected = math.sqrt(1.0 ** 2 + 0.22 ** 2 + 0.30 ** 2) * 1000.0
+        self.assertAlmostEqual(ranges[0], expected, places=6)
         self.assertAlmostEqual(ranges[0], ranges[1])
 
     def test_capture_summary(self) -> None:
         capture = CapturePoint('P1', 0.0, 1.0, frames=[make_frame(1030, 1020)])
-        rows = summarize_capture(capture, ((-0.24, 0.0), (0.24, 0.0)))
+        rows = summarize_capture(capture, ((-0.22, 0.0), (0.22, 0.0)))
         self.assertEqual(rows[0].name, 'A0原始')
-        self.assertAlmostEqual(rows[0].median_error or 0.0, 1.6032, places=3)
+        self.assertAlmostEqual(rows[0].median_error or 0.0, 6.0859, places=3)
+
+    def test_capture_summary_uses_capture_heights(self) -> None:
+        anchors = ((-0.22, 0.0), (0.22, 0.0))
+        capture = CapturePoint(
+            'P1', 0.0, 1.0,
+            anchor_height_cm=20.0,
+            tag_height_cm=50.0,
+            frames=[make_frame(1070, 1070)],
+        )
+        rows = summarize_capture(capture, anchors)
+        expected = expected_ranges_mm(
+            0.0, 1.0, anchors,
+            anchor_height_cm=20.0,
+            tag_height_cm=50.0,
+        )
+        self.assertAlmostEqual(rows[0].reference or 0.0, expected[0], places=6)
+        self.assertAlmostEqual(rows[1].reference or 0.0, expected[1], places=6)
 
     def test_linear_calibration(self) -> None:
-        anchors = ((-0.24, 0.0), (0.24, 0.0))
+        anchors = ((-0.22, 0.0), (0.22, 0.0))
         captures = []
         for y in (1.0, 2.0, 3.0):
             true0, true1 = expected_ranges_mm(0.0, y, anchors)

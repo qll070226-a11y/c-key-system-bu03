@@ -44,10 +44,39 @@ static bool s_link_active;
 static bu03_uart2_stream_t s_uart2_stream;
 static c_key_pipeline_t s_pipeline;
 static c_key_io_t s_io;
+#ifdef CONFIG_C_KEY_ALLOW_ID_FALLBACK
+static bool s_identity_fallback_active;
+#endif
 
 static uint32_t now_ms(void)
 {
     return (uint32_t)(esp_timer_get_time() / 1000);
+}
+
+static bool resolve_tag_identity(uint32_t timestamp_ms, uint8_t *tag_id)
+{
+    bool identity_valid = c_key_bu03_usb_get_recent_tag_id(
+        timestamp_ms,
+        CONFIG_C_KEY_BU03_ID_TIMEOUT_MS,
+        tag_id);
+
+#ifdef CONFIG_C_KEY_ALLOW_ID_FALLBACK
+    if (!identity_valid) {
+        *tag_id = s_accepted_id;
+        identity_valid = true;
+        if (!s_identity_fallback_active) {
+            ESP_LOGW(TAG,
+                     "real Tag ID unavailable; using accepted ID %u fallback",
+                     s_accepted_id);
+        }
+        s_identity_fallback_active = true;
+    } else if (s_identity_fallback_active) {
+        ESP_LOGI(TAG, "real Tag ID restored; fallback disabled");
+        s_identity_fallback_active = false;
+    }
+#endif
+
+    return identity_valid;
 }
 
 static c_key_pipeline_config_t make_pipeline_config(void)
@@ -67,6 +96,8 @@ static c_key_pipeline_config_t make_pipeline_config(void)
             (float)CONFIG_C_KEY_ANCHOR0_OFFSET_MM * 0.001f,
             (float)CONFIG_C_KEY_ANCHOR1_OFFSET_MM * 0.001f,
         },
+        .vertical_separation_m =
+            (float)CONFIG_C_KEY_VERTICAL_SEPARATION_MM * 0.001f,
         .door_center = {0.0f, 0.0f},
         .door_radius_m = (float)CONFIG_C_KEY_DOOR_RADIUS_MM * 0.001f,
         .front_angle_offset_deg = (float)CONFIG_C_KEY_FRONT_OFFSET_DEG,
@@ -226,10 +257,8 @@ static void handle_uart2_byte(uint8_t value, uint32_t timestamp_ms)
     }
 
     uint8_t received_tag_id = 0U;
-    const bool identity_valid = c_key_bu03_usb_get_recent_tag_id(
-        timestamp_ms,
-        CONFIG_C_KEY_BU03_ID_TIMEOUT_MS,
-        &received_tag_id);
+    const bool identity_valid =
+        resolve_tag_identity(timestamp_ms, &received_tag_id);
 
     c_key_pipeline_input_t input;
     if (!c_key_input_from_bu03_uart2(
@@ -347,10 +376,21 @@ void app_main(void)
     init_bu03_uart();
     const esp_err_t usb_id_result = c_key_bu03_usb_start();
     if (usb_id_result != ESP_OK) {
+#ifdef CONFIG_C_KEY_ALLOW_ID_FALLBACK
+        ESP_LOGW(TAG,
+                 "BU03 USB identity receiver failed: %s; debug fallback enabled",
+                 esp_err_to_name(usb_id_result));
+#else
         ESP_LOGE(TAG,
                  "BU03 USB identity receiver failed: %s; lock remains closed",
                  esp_err_to_name(usb_id_result));
+#endif
     }
+
+#ifdef CONFIG_C_KEY_ALLOW_ID_FALLBACK
+    ESP_LOGW(TAG,
+             "ID fallback enabled for debugging; disable before acceptance");
+#endif
 
     ESP_LOGI(TAG,
              "door controller ready: accepted ID=%u raw_capture=%d",
@@ -362,6 +402,13 @@ void app_main(void)
              CONFIG_C_KEY_ANCHOR0_Y_MM,
              CONFIG_C_KEY_ANCHOR1_X_MM,
              CONFIG_C_KEY_ANCHOR1_Y_MM);
+    ESP_LOGI(TAG,
+             "range calibration: A0=%dppm/%dmm A1=%dppm/%dmm vertical=%dmm",
+             CONFIG_C_KEY_ANCHOR0_SCALE_PPM,
+             CONFIG_C_KEY_ANCHOR0_OFFSET_MM,
+             CONFIG_C_KEY_ANCHOR1_SCALE_PPM,
+             CONFIG_C_KEY_ANCHOR1_OFFSET_MM,
+             CONFIG_C_KEY_VERTICAL_SEPARATION_MM);
 
     while (true) {
         const int length = uart_read_bytes((uart_port_t)CONFIG_BU03_UART_NUM,

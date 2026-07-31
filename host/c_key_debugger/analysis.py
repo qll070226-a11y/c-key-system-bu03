@@ -38,7 +38,8 @@ class CapturePoint:
     label: str
     true_x_m: float
     true_y_m: float
-    height_cm: float = 0.0
+    anchor_height_cm: float = 0.0
+    tag_height_cm: float = 0.0
     notes: str = ''
     frames: list[DiagnosticFrame] = field(default_factory=list)
 
@@ -73,9 +74,16 @@ def expected_ranges_mm(
     x_m: float,
     y_m: float,
     anchor_positions_m: tuple[tuple[float, float], tuple[float, float]],
+    anchor_height_cm: float = 0.0,
+    tag_height_cm: float = 0.0,
 ) -> tuple[float, float]:
+    height_delta_m = (tag_height_cm - anchor_height_cm) / 100.0
     values = tuple(
-        math.hypot(x_m - anchor_x, y_m - anchor_y) * 1000.0
+        math.sqrt(
+            (x_m - anchor_x) ** 2
+            + (y_m - anchor_y) ** 2
+            + height_delta_m ** 2
+        ) * 1000.0
         for anchor_x, anchor_y in anchor_positions_m
     )
     return values[0], values[1]
@@ -90,7 +98,11 @@ def summarize_capture(
     anchor_positions_m: tuple[tuple[float, float], tuple[float, float]],
 ) -> list[MetricSummary]:
     expected_a0, expected_a1 = expected_ranges_mm(
-        capture.true_x_m, capture.true_y_m, anchor_positions_m
+        capture.true_x_m,
+        capture.true_y_m,
+        anchor_positions_m,
+        capture.anchor_height_cm,
+        capture.tag_height_cm,
     )
     valid_link = [frame for frame in capture.frames if frame.link_ok]
     ready = [frame for frame in capture.frames if frame.measurement_ready]
@@ -145,7 +157,11 @@ def fit_anchor_calibration(
     pairs: tuple[list[tuple[float, float]], list[tuple[float, float]]] = ([], [])
     for capture in captures:
         expected = expected_ranges_mm(
-            capture.true_x_m, capture.true_y_m, anchor_positions_m
+            capture.true_x_m,
+            capture.true_y_m,
+            anchor_positions_m,
+            capture.anchor_height_cm,
+            capture.tag_height_cm,
         )
         for frame in capture.frames:
             if not frame.link_ok:
