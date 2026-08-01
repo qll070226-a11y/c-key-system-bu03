@@ -49,6 +49,7 @@ static c_key_pipeline_config_t make_config(void)
             .welcome_exit_m = 2.05f,
             .angle_enter_abs_deg = 43.0f,
             .angle_exit_abs_deg = 47.0f,
+            .transition_confirm_frames = 4U,
         },
     };
 }
@@ -97,7 +98,7 @@ static void test_pdoa_direct_pose(void)
     c_key_pipeline_t pipeline;
     PCHECK(c_key_pipeline_init(&pipeline, &config));
 
-    const c_key_pdoa_input_t input = {
+    c_key_pdoa_input_t input = {
         .signal_present = true,
         .measurement_valid = true,
         .tag_id = 5U,
@@ -107,7 +108,16 @@ static void test_pdoa_direct_pose(void)
         .angle_deg = 35.0f,
     };
     c_key_pipeline_output_t output;
-    PCHECK(c_key_pipeline_process_pdoa(&pipeline, &input, &output));
+    for (size_t i = 0; i < 8U; ++i) {
+        input.now_ms = 1000U + (uint32_t)i * 20U;
+        input.sequence = (uint16_t)(7U + i);
+        PCHECK(c_key_pipeline_process_pdoa(&pipeline, &input, &output));
+        if (i < 4U) {
+            PCHECK(!output.measurement_ready);
+            PCHECK(!output.pose_valid);
+            PCHECK(output.state == C_KEY_STATE_NO_KEY);
+        }
+    }
     PCHECK(output.measurement_ready);
     PCHECK(output.pose_valid);
     PCHECK(fabsf(output.pose.center_distance_m - 1.30f) < 1.0e-3f);
@@ -123,9 +133,25 @@ static void test_pdoa_direct_pose(void)
     PCHECK(output.state == C_KEY_STATE_NO_KEY);
     PCHECK(!output.pose_valid);
 
+    for (size_t i = 0; i < 4U; ++i) {
+        input.now_ms += 20U;
+        ++input.sequence;
+        PCHECK(c_key_pipeline_process_pdoa(&pipeline, &input, &output));
+        PCHECK(!output.measurement_ready);
+        PCHECK(!output.pose_valid);
+        PCHECK(output.state == C_KEY_STATE_NO_KEY);
+    }
+    input.now_ms += 20U;
+    ++input.sequence;
+    PCHECK(c_key_pipeline_process_pdoa(&pipeline, &input, &output));
+    PCHECK(output.measurement_ready);
+    PCHECK(output.pose_valid);
+    PCHECK(output.state == C_KEY_STATE_NO_KEY);
+
     c_key_pdoa_input_t invalid = input;
     invalid.measurement_valid = false;
-    invalid.now_ms = 1001U;
+    ++invalid.now_ms;
+    ++invalid.sequence;
     PCHECK(c_key_pipeline_process_pdoa(&pipeline, &invalid, &output));
     PCHECK(output.state == C_KEY_STATE_FAULT);
     PCHECK(!output.pose_valid);
@@ -158,9 +184,17 @@ int run_pipeline_tests(void)
     PCHECK(output.pose_valid);
     PCHECK(fabsf(output.pose.boundary_distance_m - 0.85f) < 1.0e-3f);
     PCHECK(fabsf(output.pose.angle_deg) < 1.0e-3f);
+    PCHECK(output.state == C_KEY_STATE_NO_KEY);
+    PCHECK(output.events == C_KEY_EVENT_NONE);
+
+    uint32_t startup_events = output.events;
+    for (size_t i = 0; i < 3U; ++i) {
+        PCHECK(c_key_pipeline_process(&pipeline, &input, &output));
+        startup_events |= output.events;
+    }
     PCHECK(output.state == C_KEY_STATE_UNLOCKED);
-    PCHECK((output.events & C_KEY_EVENT_WELCOME_ON) != 0U);
-    PCHECK((output.events & C_KEY_EVENT_UNLOCK) != 0U);
+    PCHECK((startup_events & C_KEY_EVENT_WELCOME_ON) != 0U);
+    PCHECK((startup_events & C_KEY_EVENT_UNLOCK) != 0U);
 
     PCHECK(c_key_pipeline_process(&pipeline, &input, &output));
     PCHECK(output.events == C_KEY_EVENT_NONE);

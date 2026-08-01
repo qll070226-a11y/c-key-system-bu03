@@ -212,6 +212,10 @@ bool c_key_pipeline_process_pdoa(c_key_pipeline_t *pipeline,
     };
 
     if (!input->signal_present) {
+        c_key_distance_filter_init(&pipeline->filters[0],
+                                   pipeline->config.filter_alpha);
+        pipeline->filter_valid[0] = false;
+        pipeline->sample_seen[0] = false;
         c_key_angle_filter_reset(&pipeline->angle_filter);
         output->events =
             c_key_state_machine_update(&pipeline->state_machine, &state_input);
@@ -230,30 +234,42 @@ bool c_key_pipeline_process_pdoa(c_key_pipeline_t *pipeline,
         !pipeline->sample_seen[0] ||
         input->now_ms != pipeline->last_timestamps_ms[0] ||
         input->sequence != pipeline->last_sequences[0];
-    bool distance_valid = pipeline->filter_valid[0];
+    const bool raw_sample_valid =
+        input->measurement_valid &&
+        isfinite(corrected_distance_m) &&
+        corrected_distance_m >= pipeline->config.minimum_distance_m &&
+        corrected_distance_m <= pipeline->config.maximum_distance_m &&
+        isfinite(corrected_angle_deg) &&
+        fabsf(corrected_angle_deg) <= 180.0f;
+    bool sample_valid = raw_sample_valid && pipeline->filter_valid[0];
     if (new_sample) {
-        distance_valid =
-            input->measurement_valid &&
-            isfinite(corrected_angle_deg) &&
-            fabsf(corrected_angle_deg) <= 180.0f &&
-            c_key_distance_filter_push(&pipeline->filters[0],
-                                       corrected_distance_m,
-                                       pipeline->config.minimum_distance_m,
-                                       pipeline->config.maximum_distance_m,
-                                       &pipeline->filtered_distances_m[0]);
-        pipeline->filter_valid[0] = distance_valid;
+        sample_valid = raw_sample_valid;
+        if (sample_valid) {
+            float filtered_angle_deg = 0.0f;
+            sample_valid =
+                c_key_distance_filter_push(&pipeline->filters[0],
+                                           corrected_distance_m,
+                                           pipeline->config.minimum_distance_m,
+                                           pipeline->config.maximum_distance_m,
+                                           &pipeline->filtered_distances_m[0]) &&
+                c_key_angle_filter_push(&pipeline->angle_filter,
+                                        corrected_angle_deg,
+                                        &filtered_angle_deg);
+        }
+        pipeline->filter_valid[0] = sample_valid;
         pipeline->sample_seen[0] = true;
         pipeline->last_timestamps_ms[0] = input->now_ms;
         pipeline->last_sequences[0] = input->sequence;
     }
     output->filtered_distances_m[0] = pipeline->filtered_distances_m[0];
-    output->measurement_ready = distance_valid;
+    const bool filters_warmed =
+        sample_valid &&
+        pipeline->filters[0].count >= C_KEY_FILTER_WINDOW &&
+        pipeline->angle_filter.count >= C_KEY_FILTER_WINDOW;
+    output->measurement_ready = filters_warmed;
 
-    float filtered_angle_deg = 0.0f;
-    if (distance_valid &&
-        c_key_angle_filter_push(&pipeline->angle_filter,
-                                corrected_angle_deg,
-                                &filtered_angle_deg)) {
+    if (filters_warmed) {
+        const float filtered_angle_deg = pipeline->angle_filter.filtered_deg;
         const float radians =
             filtered_angle_deg * (3.14159265358979323846f / 180.0f);
         output->pose.position.x_m =
@@ -275,8 +291,8 @@ bool c_key_pipeline_process_pdoa(c_key_pipeline_t *pipeline,
         state_input.angle_deg = output->pose.angle_deg;
     }
 
-    if (!output->pose_valid) {
-        c_key_angle_filter_reset(&pipeline->angle_filter);
+    if (raw_sample_valid && !filters_warmed) {
+        state_input.signal_present = false;
     }
     output->events =
         c_key_state_machine_update(&pipeline->state_machine, &state_input);

@@ -313,6 +313,7 @@ c_key_thresholds_t c_key_default_thresholds(void)
         .welcome_exit_m = 2.05f,
         .angle_enter_abs_deg = 43.0f,
         .angle_exit_abs_deg = 47.0f,
+        .transition_confirm_frames = 4U,
     };
 }
 
@@ -325,6 +326,7 @@ void c_key_state_machine_init(c_key_state_machine_t *machine,
 
     memset(machine, 0, sizeof(*machine));
     machine->state = C_KEY_STATE_NO_KEY;
+    machine->candidate_state = C_KEY_STATE_NO_KEY;
     machine->thresholds = thresholds;
 }
 
@@ -333,7 +335,42 @@ static bool valid_thresholds(const c_key_thresholds_t *thresholds)
     return thresholds->unlock_enter_m < thresholds->unlock_exit_m &&
            thresholds->unlock_exit_m < thresholds->welcome_enter_m &&
            thresholds->welcome_enter_m < thresholds->welcome_exit_m &&
-           thresholds->angle_enter_abs_deg < thresholds->angle_exit_abs_deg;
+           thresholds->angle_enter_abs_deg < thresholds->angle_exit_abs_deg &&
+           thresholds->transition_confirm_frames > 0U;
+}
+
+static void reset_candidate(c_key_state_machine_t *machine)
+{
+    machine->candidate_state = machine->state;
+    machine->candidate_angle_inside = machine->angle_inside;
+    machine->candidate_count = 0U;
+}
+
+static void confirm_valid_transition(c_key_state_machine_t *machine,
+                                     c_key_state_t target_state,
+                                     bool target_angle_inside)
+{
+    if (target_state == machine->state &&
+        target_angle_inside == machine->angle_inside) {
+        reset_candidate(machine);
+        return;
+    }
+
+    if (machine->candidate_count > 0U &&
+        machine->candidate_state == target_state &&
+        machine->candidate_angle_inside == target_angle_inside) {
+        ++machine->candidate_count;
+    } else {
+        machine->candidate_state = target_state;
+        machine->candidate_angle_inside = target_angle_inside;
+        machine->candidate_count = 1U;
+    }
+
+    if (machine->candidate_count >= machine->thresholds.transition_confirm_frames) {
+        machine->state = target_state;
+        machine->angle_inside = target_angle_inside;
+        reset_candidate(machine);
+    }
 }
 
 static c_key_state_t distance_state(const c_key_state_machine_t *machine, float distance_m)
@@ -377,26 +414,32 @@ uint32_t c_key_state_machine_update(c_key_state_machine_t *machine,
     if (!input->signal_present) {
         machine->state = C_KEY_STATE_NO_KEY;
         machine->angle_inside = false;
+        reset_candidate(machine);
     } else if (!input->measurement_valid || !isfinite(input->boundary_distance_m) ||
                input->boundary_distance_m < 0.0f || !isfinite(input->angle_deg)) {
         machine->state = C_KEY_STATE_FAULT;
         machine->angle_inside = false;
+        reset_candidate(machine);
     } else if (input->tag_id > 15U || input->accepted_id > 15U || input->tag_id != input->accepted_id) {
         machine->state = C_KEY_STATE_INVALID_ID;
         machine->angle_inside = false;
+        reset_candidate(machine);
     } else {
         const float absolute_angle = fabsf(input->angle_deg);
-        if (machine->angle_inside) {
+        bool target_angle_inside = machine->angle_inside;
+        if (target_angle_inside) {
             if (absolute_angle >= machine->thresholds.angle_exit_abs_deg) {
-                machine->angle_inside = false;
+                target_angle_inside = false;
             }
         } else if (absolute_angle <= machine->thresholds.angle_enter_abs_deg) {
-            machine->angle_inside = true;
+            target_angle_inside = true;
         }
 
-        machine->state = machine->angle_inside
-                             ? distance_state(machine, input->boundary_distance_m)
-                             : C_KEY_STATE_OUT_OF_ANGLE;
+        const c_key_state_t target_state =
+            target_angle_inside
+                ? distance_state(machine, input->boundary_distance_m)
+                : C_KEY_STATE_OUT_OF_ANGLE;
+        confirm_valid_transition(machine, target_state, target_angle_inside);
     }
 
     machine->welcome_output = machine->state == C_KEY_STATE_WELCOME ||

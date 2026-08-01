@@ -79,6 +79,7 @@ typedef struct {
     float welcome_exit_m;
     float angle_enter_abs_deg;
     float angle_exit_abs_deg;
+    uint8_t transition_confirm_frames;
 } c_key_thresholds_t;
 
 typedef struct {
@@ -96,6 +97,9 @@ typedef struct {
     bool angle_inside;
     bool welcome_output;
     bool unlocked_output;
+    c_key_state_t candidate_state;
+    bool candidate_angle_inside;
+    uint8_t candidate_count;
 } c_key_state_machine_t;
 
 bool c_key_locate_two_anchors_front(

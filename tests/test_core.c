@@ -147,36 +147,64 @@ static c_key_state_input_t input_at(float distance_m, float angle_deg)
     return (c_key_state_input_t){true, true, 5, 5, distance_m, angle_deg};
 }
 
+static uint32_t update_repeated(c_key_state_machine_t *machine,
+                                const c_key_state_input_t *input,
+                                size_t count)
+{
+    uint32_t events = C_KEY_EVENT_NONE;
+    for (size_t i = 0; i < count; ++i) {
+        events |= c_key_state_machine_update(machine, input);
+    }
+    return events;
+}
+
 static void test_state_machine(void)
 {
     c_key_state_machine_t machine;
     c_key_state_machine_init(&machine, c_key_default_thresholds());
     c_key_state_input_t input = input_at(2.5f, 0.0f);
 
-    c_key_state_machine_update(&machine, &input);
+    CHECK(update_repeated(&machine, &input, 3U) == C_KEY_EVENT_NONE);
+    CHECK(machine.state == C_KEY_STATE_NO_KEY);
+    CHECK(c_key_state_machine_update(&machine, &input) & C_KEY_EVENT_STATE_CHANGED);
     CHECK(machine.state == C_KEY_STATE_SENSING);
     input.boundary_distance_m = 1.95f;
+    CHECK(update_repeated(&machine, &input, 2U) == C_KEY_EVENT_NONE);
+    input.boundary_distance_m = 2.06f;
+    CHECK(c_key_state_machine_update(&machine, &input) == C_KEY_EVENT_NONE);
+    input.boundary_distance_m = 1.95f;
+    CHECK(update_repeated(&machine, &input, 3U) == C_KEY_EVENT_NONE);
+    CHECK(machine.state == C_KEY_STATE_SENSING);
     CHECK(c_key_state_machine_update(&machine, &input) & C_KEY_EVENT_WELCOME_ON);
     input.boundary_distance_m = 2.04f;
     CHECK(c_key_state_machine_update(&machine, &input) == C_KEY_EVENT_NONE);
     input.boundary_distance_m = 0.95f;
+    CHECK(update_repeated(&machine, &input, 3U) == C_KEY_EVENT_NONE);
+    CHECK(machine.state == C_KEY_STATE_WELCOME);
     CHECK(c_key_state_machine_update(&machine, &input) & C_KEY_EVENT_UNLOCK);
     input.boundary_distance_m = 1.04f;
     CHECK(c_key_state_machine_update(&machine, &input) == C_KEY_EVENT_NONE);
     input.boundary_distance_m = 1.05f;
+    CHECK(update_repeated(&machine, &input, 3U) == C_KEY_EVENT_NONE);
+    CHECK(machine.state == C_KEY_STATE_UNLOCKED);
     CHECK(c_key_state_machine_update(&machine, &input) & C_KEY_EVENT_LOCK);
     input.boundary_distance_m = 2.04f;
     CHECK(c_key_state_machine_update(&machine, &input) == C_KEY_EVENT_NONE);
     input.boundary_distance_m = 2.05f;
+    CHECK(update_repeated(&machine, &input, 3U) == C_KEY_EVENT_NONE);
+    CHECK(machine.state == C_KEY_STATE_WELCOME);
     CHECK(c_key_state_machine_update(&machine, &input) & C_KEY_EVENT_WELCOME_OFF);
 
     input = input_at(1.5f, 0.0f);
-    c_key_state_machine_update(&machine, &input);
+    update_repeated(&machine, &input, 4U);
+    CHECK(machine.state == C_KEY_STATE_WELCOME);
     input.angle_deg = 48.0f;
+    update_repeated(&machine, &input, 3U);
+    CHECK(machine.state == C_KEY_STATE_WELCOME);
     c_key_state_machine_update(&machine, &input);
     CHECK(machine.state == C_KEY_STATE_OUT_OF_ANGLE);
     input.angle_deg = 42.0f;
-    c_key_state_machine_update(&machine, &input);
+    update_repeated(&machine, &input, 4U);
     CHECK(machine.state == C_KEY_STATE_WELCOME);
     input.accepted_id = 6;
     c_key_state_machine_update(&machine, &input);

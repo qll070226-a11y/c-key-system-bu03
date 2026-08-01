@@ -53,6 +53,7 @@ static c_key_pipeline_config_t make_config(void)
             .welcome_exit_m = 2.05f,
             .angle_enter_abs_deg = 43.0f,
             .angle_exit_abs_deg = 47.0f,
+            .transition_confirm_frames = 4U,
         },
     };
 }
