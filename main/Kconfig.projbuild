@@ -85,19 +85,34 @@ config C_KEY_FILTER_ALPHA_PERCENT
     range 1 100
     default 35
 
-config C_KEY_ANGLE_FILTER_STATIONARY_ALPHA_PERCENT
-    int "静止角度EMA滤波系数百分比"
-    range 1 100
-    default 15
+config C_KEY_ANGLE_ONE_EURO_MIN_CUTOFF_CENTIHZ
+    int "One Euro最小截止频率(0.01Hz)"
+    range 1 1000
+    default 80
 
-config C_KEY_ANGLE_FILTER_MOVING_ALPHA_PERCENT
-    int "移动角度EMA滤波系数百分比"
-    range 1 100
-    default 60
+config C_KEY_ANGLE_ONE_EURO_BETA_MILLI
+    int "One Euro速度增益(0.001)"
+    range 0 1000
+    default 30
 
-config C_KEY_ANGLE_FILTER_MOTION_THRESHOLD_DEG
-    int "角度快速跟随阈值(deg)"
+config C_KEY_ANGLE_ONE_EURO_DERIVATIVE_CUTOFF_CENTIHZ
+    int "One Euro角速度截止频率(0.01Hz)"
+    range 1 1000
+    default 100
+
+config C_KEY_ANGLE_HAMPEL_SIGMA_TENTHS
+    int "Hampel阈值倍数(0.1 sigma)"
+    range 10 100
+    default 30
+
+config C_KEY_ANGLE_HAMPEL_MIN_THRESHOLD_DEG
+    int "Hampel最小异常阈值(deg)"
     range 1 90
+    default 12
+
+config C_KEY_ANGLE_HAMPEL_MAX_REJECTIONS
+    int "Hampel连续拒绝上限(帧)"
+    range 1 10
     default 3
 
 endmenu

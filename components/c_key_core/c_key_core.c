@@ -226,21 +226,31 @@ bool c_key_distance_filter_push(c_key_distance_filter_t *filter,
 }
 
 void c_key_angle_filter_init(c_key_angle_filter_t *filter,
-                             float stationary_alpha,
-                             float moving_alpha,
-                             float motion_threshold_deg)
+                             float minimum_cutoff_hz,
+                             float beta,
+                             float derivative_cutoff_hz,
+                             float hampel_sigma,
+                             float hampel_min_threshold_deg,
+                             uint8_t maximum_consecutive_rejections)
 {
     if (filter == NULL) {
         return;
     }
 
     memset(filter, 0, sizeof(*filter));
-    filter->stationary_alpha =
-        isfinite(stationary_alpha) ? fminf(1.0f, fmaxf(0.01f, stationary_alpha)) : 0.15f;
-    filter->moving_alpha =
-        isfinite(moving_alpha) ? fminf(1.0f, fmaxf(filter->stationary_alpha, moving_alpha)) : 0.60f;
-    filter->motion_threshold_deg =
-        isfinite(motion_threshold_deg) ? fmaxf(0.1f, motion_threshold_deg) : 3.0f;
+    filter->minimum_cutoff_hz =
+        isfinite(minimum_cutoff_hz) ? fmaxf(0.01f, minimum_cutoff_hz) : 0.8f;
+    filter->beta = isfinite(beta) ? fmaxf(0.0f, beta) : 0.03f;
+    filter->derivative_cutoff_hz =
+        isfinite(derivative_cutoff_hz) ? fmaxf(0.01f, derivative_cutoff_hz) : 1.0f;
+    filter->hampel_sigma =
+        isfinite(hampel_sigma) ? fmaxf(1.0f, hampel_sigma) : 3.0f;
+    filter->hampel_min_threshold_deg =
+        isfinite(hampel_min_threshold_deg)
+            ? fmaxf(1.0f, hampel_min_threshold_deg)
+            : 12.0f;
+    filter->maximum_consecutive_rejections =
+        maximum_consecutive_rejections > 0U ? maximum_consecutive_rejections : 3U;
 }
 
 void c_key_angle_filter_reset(c_key_angle_filter_t *filter)
@@ -252,11 +262,50 @@ void c_key_angle_filter_reset(c_key_angle_filter_t *filter)
     filter->count = 0U;
     filter->next = 0U;
     filter->filtered_deg = 0.0f;
+    filter->previous_raw_deg = 0.0f;
+    filter->filtered_derivative_deg_s = 0.0f;
+    filter->last_timestamp_ms = 0U;
+    filter->consecutive_rejections = 0U;
+    filter->last_sample_rejected = false;
     filter->initialized = false;
+}
+
+static float one_euro_alpha(float delta_time_s, float cutoff_hz)
+{
+    const float ratio = 2.0f * C_KEY_PI * cutoff_hz * delta_time_s;
+    return ratio / (ratio + 1.0f);
+}
+
+static bool angle_is_hampel_outlier(const c_key_angle_filter_t *filter,
+                                    float raw_angle_deg)
+{
+    if (filter->count < C_KEY_ANGLE_HAMPEL_WINDOW) {
+        return false;
+    }
+
+    float unwrapped[C_KEY_ANGLE_HAMPEL_WINDOW];
+    for (size_t i = 0; i < filter->count; ++i) {
+        unwrapped[i] = filter->filtered_deg +
+                       normalize_angle(filter->samples[i] - filter->filtered_deg);
+    }
+    sort_values(unwrapped, filter->count);
+    const float median = unwrapped[filter->count / 2U];
+
+    float deviations[C_KEY_ANGLE_HAMPEL_WINDOW];
+    for (size_t i = 0; i < filter->count; ++i) {
+        deviations[i] = fabsf(unwrapped[i] - median);
+    }
+    sort_values(deviations, filter->count);
+    const float mad = deviations[filter->count / 2U];
+    const float threshold =
+        fmaxf(filter->hampel_min_threshold_deg,
+              filter->hampel_sigma * 1.4826f * mad);
+    return fabsf(normalize_angle(raw_angle_deg - median)) > threshold;
 }
 
 bool c_key_angle_filter_push(c_key_angle_filter_t *filter,
                              float raw_angle_deg,
+                             uint32_t timestamp_ms,
                              float *filtered_angle_deg)
 {
     if (filter == NULL || filtered_angle_deg == NULL || !isfinite(raw_angle_deg)) {
@@ -269,37 +318,66 @@ bool c_key_angle_filter_push(c_key_angle_filter_t *filter,
         filter->count = 1U;
         filter->next = 1U;
         filter->filtered_deg = raw_angle_deg;
+        filter->previous_raw_deg = raw_angle_deg;
+        filter->last_timestamp_ms = timestamp_ms;
         filter->initialized = true;
         *filtered_angle_deg = raw_angle_deg;
         return true;
     }
 
+    filter->last_sample_rejected = false;
+    const bool hampel_outlier =
+        angle_is_hampel_outlier(filter, raw_angle_deg);
+    if (hampel_outlier) {
+        if (filter->consecutive_rejections <
+            filter->maximum_consecutive_rejections) {
+            ++filter->consecutive_rejections;
+            ++filter->rejected_samples;
+            filter->last_sample_rejected = true;
+            *filtered_angle_deg = filter->filtered_deg;
+            return true;
+        }
+
+        for (size_t i = 0; i < C_KEY_ANGLE_HAMPEL_WINDOW; ++i) {
+            filter->samples[i] = raw_angle_deg;
+        }
+        filter->count = C_KEY_ANGLE_HAMPEL_WINDOW;
+        filter->next = 0U;
+    }
+    filter->consecutive_rejections = 0U;
+
     filter->samples[filter->next] = raw_angle_deg;
-    filter->next = (filter->next + 1U) % C_KEY_FILTER_WINDOW;
-    if (filter->count < C_KEY_FILTER_WINDOW) {
+    filter->next = (filter->next + 1U) % C_KEY_ANGLE_HAMPEL_WINDOW;
+    if (filter->count < C_KEY_ANGLE_HAMPEL_WINDOW) {
         ++filter->count;
     }
 
-    float unwrapped[C_KEY_FILTER_WINDOW];
-    for (size_t i = 0; i < filter->count; ++i) {
-        unwrapped[i] = filter->filtered_deg +
-                       normalize_angle(filter->samples[i] - filter->filtered_deg);
+    uint32_t elapsed_ms = timestamp_ms - filter->last_timestamp_ms;
+    if (elapsed_ms == 0U) {
+        elapsed_ms = 1U;
+    } else if (elapsed_ms > 250U) {
+        elapsed_ms = 250U;
     }
-    sort_values(unwrapped, filter->count);
+    const float delta_time_s = (float)elapsed_ms * 0.001f;
+    const float raw_derivative =
+        normalize_angle(raw_angle_deg - filter->previous_raw_deg) /
+        delta_time_s;
+    const float derivative_alpha =
+        one_euro_alpha(delta_time_s, filter->derivative_cutoff_hz);
+    filter->filtered_derivative_deg_s +=
+        derivative_alpha *
+        (raw_derivative - filter->filtered_derivative_deg_s);
 
-    float median;
-    if ((filter->count & 1U) != 0U) {
-        median = unwrapped[filter->count / 2U];
-    } else {
-        median = 0.5f * (unwrapped[filter->count / 2U - 1U] +
-                         unwrapped[filter->count / 2U]);
-    }
-
-    const float error_deg = normalize_angle(median - filter->filtered_deg);
-    const float alpha = fabsf(error_deg) >= filter->motion_threshold_deg
-                            ? filter->moving_alpha
-                            : filter->stationary_alpha;
-    filter->filtered_deg = normalize_angle(filter->filtered_deg + alpha * error_deg);
+    const float cutoff_hz =
+        filter->minimum_cutoff_hz +
+        filter->beta * fabsf(filter->filtered_derivative_deg_s);
+    const float angle_alpha = one_euro_alpha(delta_time_s, cutoff_hz);
+    const float error_deg =
+        normalize_angle(raw_angle_deg - filter->filtered_deg);
+    filter->filtered_deg =
+        normalize_angle(filter->filtered_deg + angle_alpha * error_deg);
+    filter->previous_raw_deg = raw_angle_deg;
+    filter->last_timestamp_ms = timestamp_ms;
     *filtered_angle_deg = filter->filtered_deg;
     return true;
 }

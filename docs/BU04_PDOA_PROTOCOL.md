@@ -62,5 +62,5 @@ rejected_frames，并在缓存内寻找下一组帧头以恢复同步。主程�
 
 - BU04 主USB数据口当前为 COM25。
 - BU04 排针4为 UART2_TX，正式接 ESP32 GPIO18。
-- 两个接口均是二进制数据源，上位机不能直接把它们当 C_KEY_DIAG_V2 文本读取。
-- C_KEY_DIAG_V2 由 ESP32 解析后从其 CH343 COM 口输出。
+- 两个接口均是二进制数据源，上位机不能直接把它们当 C_KEY_DIAG_V3/V2 文本读取。
+- C_KEY_DIAG_V3 由 ESP32 解析后从其 CH343 COM 口输出，上位机仍可回放V2记录。

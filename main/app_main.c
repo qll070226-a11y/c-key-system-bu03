@@ -74,12 +74,18 @@ static c_key_pipeline_config_t make_pipeline_config(void)
         .door_radius_m = (float)CONFIG_C_KEY_DOOR_RADIUS_MM * 0.001f,
         .front_angle_offset_deg = (float)CONFIG_C_KEY_FRONT_OFFSET_DEG,
         .filter_alpha = (float)CONFIG_C_KEY_FILTER_ALPHA_PERCENT * 0.01f,
-        .angle_filter_stationary_alpha =
-            (float)CONFIG_C_KEY_ANGLE_FILTER_STATIONARY_ALPHA_PERCENT * 0.01f,
-        .angle_filter_moving_alpha =
-            (float)CONFIG_C_KEY_ANGLE_FILTER_MOVING_ALPHA_PERCENT * 0.01f,
-        .angle_filter_motion_threshold_deg =
-            (float)CONFIG_C_KEY_ANGLE_FILTER_MOTION_THRESHOLD_DEG,
+        .angle_one_euro_min_cutoff_hz =
+            (float)CONFIG_C_KEY_ANGLE_ONE_EURO_MIN_CUTOFF_CENTIHZ * 0.01f,
+        .angle_one_euro_beta =
+            (float)CONFIG_C_KEY_ANGLE_ONE_EURO_BETA_MILLI * 0.001f,
+        .angle_one_euro_derivative_cutoff_hz =
+            (float)CONFIG_C_KEY_ANGLE_ONE_EURO_DERIVATIVE_CUTOFF_CENTIHZ * 0.01f,
+        .angle_hampel_sigma =
+            (float)CONFIG_C_KEY_ANGLE_HAMPEL_SIGMA_TENTHS * 0.1f,
+        .angle_hampel_min_threshold_deg =
+            (float)CONFIG_C_KEY_ANGLE_HAMPEL_MIN_THRESHOLD_DEG,
+        .angle_hampel_max_rejections =
+            CONFIG_C_KEY_ANGLE_HAMPEL_MAX_REJECTIONS,
         .minimum_distance_m = 0.05f,
         .maximum_distance_m = 20.0f,
         .maximum_residual_m = 0.35f,

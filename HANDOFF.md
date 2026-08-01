@@ -92,7 +92,7 @@ main/app_main.c                 UART、超时、TFT和GPIO主循环
 components/c_key_core/
   bu04_pdoa.c                  31字节PDOA协议解析
   c_key_pipeline.c             PDOA滤波、坐标、认证和状态机
-  c_key_telemetry.c            C_KEY_DIAG_V2
+  c_key_telemetry.c            C_KEY_DIAG_V3（兼容回放V2）
 components/c_key_io/           拨码、LED和低电平蜂鸣器
 components/c_key_tft/          中文ILI9341/ST7789显示
 host/                          Python PDOA诊断上位机
@@ -107,7 +107,7 @@ BU04 原始距离单位为 cm，原始角度单位为 deg。当前流程：
 
 ~~~text
 原始距离 -> scale/offset -> 5点中值 + EMA
-原始角度 -> 安装零偏 -> 5点中值 + 自适应EMA
+原始角度 -> 安装零偏 -> 7点环形Hampel + One Euro
 滤波距离和角度 -> X=r*sin(a), Y=r*cos(a)
 中心距离 -> max(0, 中心距离-0.30m) -> 区域状态机
 ~~~
@@ -118,6 +118,10 @@ BU04 原始距离单位为 cm，原始角度单位为 deg。当前流程：
 PDOA启动或断流恢复后需积累5个有效样本；区域和角度状态变化需连续4帧确认。
 断流、坏帧、未知标签或拨码ID不匹配不等待确认，立即闭锁。该保护只抑制状态
 抖动，不替代距离和角度标定。
+
+实验分支 pdoa-one-euro 使用One Euro参数0.8Hz/beta 0.03/导数截止1.0Hz，
+Hampel阈值为max(12度, 3倍稳健标准差)，最多连续拒绝3帧。诊断V3新增首径
+功率、接收电平、当前角度拒绝标志和累计拒绝数；质量门限尚未启用，必须先实测。
 
 2026-08-01实机验证：正前方约1m时，10秒收到495条有效诊断帧且解析错误0，
 校正距离约1.01m、方位角约+1.85度，状态稳定为UNLOCKED；标签断电后TFT、

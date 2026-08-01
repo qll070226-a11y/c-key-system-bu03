@@ -11,9 +11,12 @@ typedef struct {
     float door_radius_m;
     float front_angle_offset_deg;
     float filter_alpha;
-    float angle_filter_stationary_alpha;
-    float angle_filter_moving_alpha;
-    float angle_filter_motion_threshold_deg;
+    float angle_one_euro_min_cutoff_hz;
+    float angle_one_euro_beta;
+    float angle_one_euro_derivative_cutoff_hz;
+    float angle_hampel_sigma;
+    float angle_hampel_min_threshold_deg;
+    uint8_t angle_hampel_max_rejections;
     float minimum_distance_m;
     float maximum_distance_m;
     float maximum_residual_m;
@@ -50,6 +53,8 @@ typedef struct {
     c_key_state_t state;
     bool welcome_output;
     bool unlocked_output;
+    bool angle_sample_rejected;
+    uint32_t angle_rejected_samples;
     uint32_t events;
 } c_key_pipeline_output_t;
 

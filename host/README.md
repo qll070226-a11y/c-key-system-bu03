@@ -1,6 +1,6 @@
 # C题 BU04 PDOA 定位诊断上位机
 
-该工具读取 ESP32-S3 USB 串口输出的 C_KEY_DIAG_V2，用于观察 BU04 PDOA
+该工具读取 ESP32-S3 USB 串口输出的 C_KEY_DIAG_V3（兼容旧版V2），用于观察 BU04 PDOA
 基站给出的原始距离与角度，以及固件完成校正、滤波和门锁坐标换算后的结果。
 
 ## 端口关系
@@ -11,7 +11,7 @@
 
 正式整机连接时，BU04 UART2_TX 接 ESP32-S3 GPIO18，两者 GND 共地。ESP32
 解析二进制帧后，才会在自己的 USB 串口输出上位机能够读取的文本诊断帧。
-因此不能直接在 GUI 中选择 COM25 期待看到 C_KEY_DIAG_V2。
+因此不能直接在 GUI 中选择 COM25 期待看到 C_KEY_DIAG_V3/V2。
 
 ## 安装与启动
 

@@ -114,31 +114,49 @@ static void test_filter_and_freshness(void)
     NEAR(output, 2.01f, 0.03f);
 }
 
-static void test_adaptive_angle_filter(void)
+static void test_robust_one_euro_angle_filter(void)
 {
     c_key_angle_filter_t filter;
-    c_key_angle_filter_init(&filter, 0.15f, 0.60f, 3.0f);
+    c_key_angle_filter_init(
+        &filter, 0.8f, 0.03f, 1.0f, 3.0f, 12.0f, 3U);
 
     const float stationary_samples[] = {0.0f, 1.8f, -1.6f, 1.2f, -1.0f, 1.4f, -1.2f};
     float output = 0.0f;
+    uint32_t timestamp_ms = 1000U;
     for (size_t i = 0; i < sizeof(stationary_samples) / sizeof(stationary_samples[0]); ++i) {
-        CHECK(c_key_angle_filter_push(&filter, stationary_samples[i], &output));
+        CHECK(c_key_angle_filter_push(
+            &filter, stationary_samples[i], timestamp_ms, &output));
+        timestamp_ms += 20U;
     }
-    CHECK(fabsf(output) < 0.5f);
+    CHECK(fabsf(output) < 1.0f);
 
-    for (size_t i = 0; i < 5U; ++i) {
-        CHECK(c_key_angle_filter_push(&filter, 20.0f, &output));
+    const float before_outlier = output;
+    CHECK(c_key_angle_filter_push(&filter, 65.0f, timestamp_ms, &output));
+    timestamp_ms += 20U;
+    CHECK(filter.last_sample_rejected);
+    CHECK(filter.rejected_samples == 1U);
+    NEAR(output, before_outlier, 1.0e-5f);
+    CHECK(c_key_angle_filter_push(
+        &filter, 0.0f, timestamp_ms, &output));
+    timestamp_ms += 20U;
+    CHECK(!filter.last_sample_rejected);
+
+    for (size_t i = 0; i < 14U; ++i) {
+        CHECK(c_key_angle_filter_push(
+            &filter, 20.0f, timestamp_ms, &output));
+        timestamp_ms += 20U;
     }
-    CHECK(output > 18.0f);
+    CHECK(filter.rejected_samples == 4U);
+    CHECK(output > 17.0f);
     CHECK(output <= 20.0f);
 
     c_key_angle_filter_reset(&filter);
-    CHECK(c_key_angle_filter_push(&filter, 179.0f, &output));
-    CHECK(c_key_angle_filter_push(&filter, -179.0f, &output));
+    CHECK(c_key_angle_filter_push(&filter, 179.0f, 2000U, &output));
+    CHECK(c_key_angle_filter_push(&filter, -179.0f, 2020U, &output));
     CHECK(fabsf(fabsf(output) - 180.0f) < 1.0f);
 
     c_key_angle_filter_reset(&filter);
-    CHECK(c_key_angle_filter_push(&filter, -35.0f, &output));
+    CHECK(c_key_angle_filter_push(&filter, -35.0f, 3000U, &output));
     NEAR(output, -35.0f, 1.0e-5f);
 }
 
@@ -220,7 +238,7 @@ int main(void)
     test_two_anchor_location();
     test_pose();
     test_filter_and_freshness();
-    test_adaptive_angle_filter();
+    test_robust_one_euro_angle_filter();
     test_state_machine();
     failures += run_pipeline_tests();
     failures += run_display_tests();

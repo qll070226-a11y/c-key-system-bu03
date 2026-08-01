@@ -24,15 +24,17 @@ static bool config_is_valid(const c_key_pipeline_config_t *config)
         !isfinite(config->front_angle_offset_deg) ||
         !isfinite(config->filter_alpha) || config->filter_alpha <= 0.0f ||
         config->filter_alpha > 1.0f ||
-        !isfinite(config->angle_filter_stationary_alpha) ||
-        config->angle_filter_stationary_alpha <= 0.0f ||
-        config->angle_filter_stationary_alpha > 1.0f ||
-        !isfinite(config->angle_filter_moving_alpha) ||
-        config->angle_filter_moving_alpha < config->angle_filter_stationary_alpha ||
-        config->angle_filter_moving_alpha > 1.0f ||
-        !isfinite(config->angle_filter_motion_threshold_deg) ||
-        config->angle_filter_motion_threshold_deg <= 0.0f ||
-        config->angle_filter_motion_threshold_deg > 90.0f ||
+        !isfinite(config->angle_one_euro_min_cutoff_hz) ||
+        config->angle_one_euro_min_cutoff_hz <= 0.0f ||
+        !isfinite(config->angle_one_euro_beta) ||
+        config->angle_one_euro_beta < 0.0f ||
+        !isfinite(config->angle_one_euro_derivative_cutoff_hz) ||
+        config->angle_one_euro_derivative_cutoff_hz <= 0.0f ||
+        !isfinite(config->angle_hampel_sigma) ||
+        config->angle_hampel_sigma < 1.0f ||
+        !isfinite(config->angle_hampel_min_threshold_deg) ||
+        config->angle_hampel_min_threshold_deg < 1.0f ||
+        config->angle_hampel_max_rejections == 0U ||
         !isfinite(config->minimum_distance_m) || !isfinite(config->maximum_distance_m) ||
         config->minimum_distance_m < 0.0f ||
         config->minimum_distance_m >= config->maximum_distance_m ||
@@ -65,9 +67,12 @@ bool c_key_pipeline_init(c_key_pipeline_t *pipeline,
         c_key_distance_filter_init(&pipeline->filters[i], config->filter_alpha);
     }
     c_key_angle_filter_init(&pipeline->angle_filter,
-                            config->angle_filter_stationary_alpha,
-                            config->angle_filter_moving_alpha,
-                            config->angle_filter_motion_threshold_deg);
+                            config->angle_one_euro_min_cutoff_hz,
+                            config->angle_one_euro_beta,
+                            config->angle_one_euro_derivative_cutoff_hz,
+                            config->angle_hampel_sigma,
+                            config->angle_hampel_min_threshold_deg,
+                            config->angle_hampel_max_rejections);
     c_key_state_machine_init(&pipeline->state_machine, config->thresholds);
     return true;
 }
@@ -175,6 +180,7 @@ bool c_key_pipeline_process(c_key_pipeline_t *pipeline,
             float filtered_angle_deg;
             if (c_key_angle_filter_push(&pipeline->angle_filter,
                                         output->pose.angle_deg,
+                                        input->now_ms,
                                         &filtered_angle_deg)) {
                 output->pose.angle_deg = filtered_angle_deg;
                 output->pose_valid = true;
@@ -254,6 +260,7 @@ bool c_key_pipeline_process_pdoa(c_key_pipeline_t *pipeline,
                                            &pipeline->filtered_distances_m[0]) &&
                 c_key_angle_filter_push(&pipeline->angle_filter,
                                         corrected_angle_deg,
+                                        input->now_ms,
                                         &filtered_angle_deg);
         }
         pipeline->filter_valid[0] = sample_valid;
@@ -262,6 +269,10 @@ bool c_key_pipeline_process_pdoa(c_key_pipeline_t *pipeline,
         pipeline->last_sequences[0] = input->sequence;
     }
     output->filtered_distances_m[0] = pipeline->filtered_distances_m[0];
+    output->angle_sample_rejected =
+        pipeline->angle_filter.last_sample_rejected;
+    output->angle_rejected_samples =
+        pipeline->angle_filter.rejected_samples;
     const bool filters_warmed =
         sample_valid &&
         pipeline->filters[0].count >= C_KEY_FILTER_WINDOW &&

@@ -11,6 +11,7 @@ extern "C" {
 
 #define C_KEY_ANCHOR_COUNT 2U
 #define C_KEY_FILTER_WINDOW 5U
+#define C_KEY_ANGLE_HAMPEL_WINDOW 7U
 
 typedef struct {
     float x_m;
@@ -43,13 +44,22 @@ typedef struct {
 } c_key_distance_filter_t;
 
 typedef struct {
-    float samples[C_KEY_FILTER_WINDOW];
+    float samples[C_KEY_ANGLE_HAMPEL_WINDOW];
     size_t count;
     size_t next;
     float filtered_deg;
-    float stationary_alpha;
-    float moving_alpha;
-    float motion_threshold_deg;
+    float previous_raw_deg;
+    float filtered_derivative_deg_s;
+    float minimum_cutoff_hz;
+    float beta;
+    float derivative_cutoff_hz;
+    float hampel_sigma;
+    float hampel_min_threshold_deg;
+    uint32_t last_timestamp_ms;
+    uint32_t rejected_samples;
+    uint8_t consecutive_rejections;
+    uint8_t maximum_consecutive_rejections;
+    bool last_sample_rejected;
     bool initialized;
 } c_key_angle_filter_t;
 
@@ -130,14 +140,18 @@ bool c_key_distance_filter_push(c_key_distance_filter_t *filter,
                                 float *filtered_distance_m);
 
 void c_key_angle_filter_init(c_key_angle_filter_t *filter,
-                             float stationary_alpha,
-                             float moving_alpha,
-                             float motion_threshold_deg);
+                             float minimum_cutoff_hz,
+                             float beta,
+                             float derivative_cutoff_hz,
+                             float hampel_sigma,
+                             float hampel_min_threshold_deg,
+                             uint8_t maximum_consecutive_rejections);
 
 void c_key_angle_filter_reset(c_key_angle_filter_t *filter);
 
 bool c_key_angle_filter_push(c_key_angle_filter_t *filter,
                              float raw_angle_deg,
+                             uint32_t timestamp_ms,
                              float *filtered_angle_deg);
 
 c_key_thresholds_t c_key_default_thresholds(void);

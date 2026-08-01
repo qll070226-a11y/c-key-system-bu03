@@ -169,7 +169,7 @@ class MainWindow(QtWidgets.QMainWindow):
             ('address', 'UWB标签地址'), ('raw', '原始距离 / 角度'),
             ('corrected', '校正距离'), ('filtered', '滤波距离 / 角度'),
             ('pose', '位置 X / Y'), ('boundary', '门锁边界距离'),
-            ('quality', '帧质量'),
+            ('quality', '信号 / 帧质量'),
         ):
             metrics.addWidget(self._metric_widget(key, title), 1)
         layout.addLayout(metrics)
@@ -453,7 +453,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.connect_button.setEnabled(False)
         self.disconnect_button.setEnabled(True)
         self.statusBar().showMessage(
-            f'数据源已连接：{text}；等待ESP32输出C_KEY_DIAG_V2'
+            f'数据源已连接：{text}；等待ESP32输出C_KEY_DIAG_V3/V2'
         )
 
     def source_closed(self) -> None:
@@ -563,6 +563,9 @@ class MainWindow(QtWidgets.QMainWindow):
             f'{frame.boundary_m:.3f} m' if frame.pose_valid else '--'
         )
         self._metric_values['quality'].setText(
+            f'FP {frame.first_path_power} / RX {frame.rx_level} / '
+            f'H {frame.angle_rejected_samples}'
+            f'{"*" if frame.angle_sample_rejected else ""} | '
             f'OK {frame.accepted_frames} / BAD {frame.rejected_frames} / '
             f'GAP {self._sequence_gaps}'
         )
