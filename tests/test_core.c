@@ -155,17 +155,19 @@ static void test_state_machine(void)
 
     c_key_state_machine_update(&machine, &input);
     CHECK(machine.state == C_KEY_STATE_SENSING);
-    input.boundary_distance_m = 1.85f;
+    input.boundary_distance_m = 1.95f;
     CHECK(c_key_state_machine_update(&machine, &input) & C_KEY_EVENT_WELCOME_ON);
-    input.boundary_distance_m = 1.98f;
+    input.boundary_distance_m = 2.04f;
     CHECK(c_key_state_machine_update(&machine, &input) == C_KEY_EVENT_NONE);
-    input.boundary_distance_m = 0.85f;
+    input.boundary_distance_m = 0.95f;
     CHECK(c_key_state_machine_update(&machine, &input) & C_KEY_EVENT_UNLOCK);
-    input.boundary_distance_m = 1.05f;
+    input.boundary_distance_m = 1.04f;
     CHECK(c_key_state_machine_update(&machine, &input) == C_KEY_EVENT_NONE);
-    input.boundary_distance_m = 1.15f;
+    input.boundary_distance_m = 1.05f;
     CHECK(c_key_state_machine_update(&machine, &input) & C_KEY_EVENT_LOCK);
-    input.boundary_distance_m = 2.15f;
+    input.boundary_distance_m = 2.04f;
+    CHECK(c_key_state_machine_update(&machine, &input) == C_KEY_EVENT_NONE);
+    input.boundary_distance_m = 2.05f;
     CHECK(c_key_state_machine_update(&machine, &input) & C_KEY_EVENT_WELCOME_OFF);
 
     input = input_at(1.5f, 0.0f);

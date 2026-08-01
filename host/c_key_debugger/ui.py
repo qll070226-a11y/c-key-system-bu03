@@ -222,8 +222,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.position_plot.setXRange(-2.5, 2.5)
         self.position_plot.setYRange(-0.35, 3.8)
         self._add_zone_circle(0.30, '#111827')
-        self._add_zone_circle(1.20, '#dc2626')
-        self._add_zone_circle(2.20, '#16a34a')
+        self._add_zone_circle(1.25, '#dc2626')
+        self._add_zone_circle(2.25, '#16a34a')
         self.position_plot.plot(
             [0.0], [0.0],
             pen=None, symbol='t1', symbolSize=15, symbolBrush='#111827',
