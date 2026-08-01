@@ -10,6 +10,36 @@ import serial
 from c_key_debugger.telemetry import TelemetryParseError, parse_diagnostic_line
 
 
+def _normalize_angle(angle_deg: float) -> float:
+    while angle_deg > 180.0:
+        angle_deg -= 360.0
+    while angle_deg < -180.0:
+        angle_deg += 360.0
+    return angle_deg
+
+
+def _legacy_filtered_angles(raw_angles: list[float]) -> list[float]:
+    if not raw_angles:
+        return []
+    samples: list[float] = []
+    filtered = _normalize_angle(raw_angles[0])
+    outputs: list[float] = []
+    for raw_angle in raw_angles:
+        raw_angle = _normalize_angle(raw_angle)
+        samples.append(raw_angle)
+        samples = samples[-5:]
+        unwrapped = sorted(
+            filtered + _normalize_angle(sample - filtered)
+            for sample in samples
+        )
+        median = statistics.median(unwrapped)
+        error = _normalize_angle(median - filtered)
+        alpha = 0.60 if abs(error) >= 3.0 else 0.15
+        filtered = _normalize_angle(filtered + alpha * error)
+        outputs.append(filtered)
+    return outputs
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description='检查ESP32诊断串口')
     parser.add_argument('port')
@@ -74,13 +104,25 @@ def main() -> int:
             f'state={last.state}'
         )
         if len(raw_angles) >= 2 and len(filtered_angles) >= 2:
+            legacy_angles = _legacy_filtered_angles(raw_angles)
             print(
                 f'angle_stats: raw_std={statistics.pstdev(raw_angles):.3f}deg '
+                f'raw_mean={statistics.fmean(raw_angles):+.3f}deg '
+                f'raw_median={statistics.median(raw_angles):+.3f}deg '
                 f'raw_range=[{min(raw_angles):+.1f},{max(raw_angles):+.1f}]deg '
                 f'filtered_std={statistics.pstdev(filtered_angles):.3f}deg '
+                f'filtered_mean={statistics.fmean(filtered_angles):+.3f}deg '
                 f'filtered_range=[{min(filtered_angles):+.2f},'
                 f'{max(filtered_angles):+.2f}]deg '
                 f'hampel_rejected={rejected_frames}'
+            )
+            print(
+                f'filter_compare: legacy_std='
+                f'{statistics.pstdev(legacy_angles):.3f}deg '
+                f'one_euro_std={statistics.pstdev(filtered_angles):.3f}deg '
+                f'raw_max_step={max(abs(b - a) for a, b in zip(raw_angles, raw_angles[1:])):.1f}deg '
+                f'one_euro_max_step='
+                f'{max(abs(b - a) for a, b in zip(filtered_angles, filtered_angles[1:])):.2f}deg'
             )
         if first_path_powers and rx_levels:
             print(

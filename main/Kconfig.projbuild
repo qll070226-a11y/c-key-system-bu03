@@ -85,6 +85,21 @@ config C_KEY_FILTER_ALPHA_PERCENT
     range 1 100
     default 35
 
+config C_KEY_ANGLE_CAL_RAW_NEG15_TENTHS
+    int "物理-15度对应原始角度(0.1deg)"
+    range -300 -1
+    default -123
+
+config C_KEY_ANGLE_CAL_RAW_NEG30_TENTHS
+    int "物理-30度对应原始角度(0.1deg)"
+    range -450 -2
+    default -282
+
+config C_KEY_ANGLE_CAL_RAW_NEG45_TENTHS
+    int "物理-45度对应原始角度(0.1deg)"
+    range -600 -3
+    default -415
+
 config C_KEY_ANGLE_ONE_EURO_MIN_CUTOFF_CENTIHZ
     int "One Euro最小截止频率(0.01Hz)"
     range 1 1000

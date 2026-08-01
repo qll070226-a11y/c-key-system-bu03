@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 
 #include "c_key_core.h"
@@ -112,6 +113,42 @@ static void test_filter_and_freshness(void)
         CHECK(c_key_distance_filter_push(&filter, samples[i], 0.05f, 10.0f, &output));
     }
     NEAR(output, 2.01f, 0.03f);
+}
+
+static void test_piecewise_angle_calibration(void)
+{
+    const float measured[C_KEY_ANGLE_CALIBRATION_POINTS] = {
+        -41.5f, -28.2f, -12.3f, 0.0f, 15.0f, 30.0f, 45.0f,
+    };
+    const float reference[C_KEY_ANGLE_CALIBRATION_POINTS] = {
+        -45.0f, -30.0f, -15.0f, 0.0f, 15.0f, 30.0f, 45.0f,
+    };
+    float calibrated = 0.0f;
+
+    CHECK(c_key_angle_calibrate_piecewise(
+        -12.3f, measured, reference, &calibrated));
+    NEAR(calibrated, -15.0f, 1.0e-4f);
+    CHECK(c_key_angle_calibrate_piecewise(
+        -28.2f, measured, reference, &calibrated));
+    NEAR(calibrated, -30.0f, 1.0e-4f);
+    CHECK(c_key_angle_calibrate_piecewise(
+        -41.5f, measured, reference, &calibrated));
+    NEAR(calibrated, -45.0f, 1.0e-4f);
+    CHECK(c_key_angle_calibrate_piecewise(
+        -20.0f, measured, reference, &calibrated));
+    NEAR(calibrated, -22.2642f, 1.0e-3f);
+    CHECK(c_key_angle_calibrate_piecewise(
+        30.0f, measured, reference, &calibrated));
+    NEAR(calibrated, 30.0f, 1.0e-4f);
+    CHECK(c_key_angle_calibrate_piecewise(
+        -50.0f, measured, reference, &calibrated));
+    NEAR(calibrated, -53.5f, 1.0e-4f);
+
+    float invalid_measured[C_KEY_ANGLE_CALIBRATION_POINTS];
+    memcpy(invalid_measured, measured, sizeof(invalid_measured));
+    invalid_measured[2] = invalid_measured[1];
+    CHECK(!c_key_angle_calibrate_piecewise(
+        0.0f, invalid_measured, reference, &calibrated));
 }
 
 static void test_robust_one_euro_angle_filter(void)
@@ -238,6 +275,7 @@ int main(void)
     test_two_anchor_location();
     test_pose();
     test_filter_and_freshness();
+    test_piecewise_angle_calibration();
     test_robust_one_euro_angle_filter();
     test_state_machine();
     failures += run_pipeline_tests();

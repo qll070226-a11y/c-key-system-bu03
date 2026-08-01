@@ -36,6 +36,12 @@ static c_key_pipeline_config_t make_config(void)
         .distance_scale_factors = {1.0f, 1.0f},
         .door_center = {0.0f, 0.0f},
         .door_radius_m = 0.30f,
+        .angle_calibration_measured_deg = {
+            -41.5f, -28.2f, -12.3f, 0.0f, 15.0f, 30.0f, 45.0f,
+        },
+        .angle_calibration_reference_deg = {
+            -45.0f, -30.0f, -15.0f, 0.0f, 15.0f, 30.0f, 45.0f,
+        },
         .filter_alpha = 0.35f,
         .angle_one_euro_min_cutoff_hz = 0.8f,
         .angle_one_euro_beta = 0.03f,

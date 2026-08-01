@@ -10,6 +10,8 @@ typedef struct {
     c_key_point_t door_center;
     float door_radius_m;
     float front_angle_offset_deg;
+    float angle_calibration_measured_deg[C_KEY_ANGLE_CALIBRATION_POINTS];
+    float angle_calibration_reference_deg[C_KEY_ANGLE_CALIBRATION_POINTS];
     float filter_alpha;
     float angle_one_euro_min_cutoff_hz;
     float angle_one_euro_beta;

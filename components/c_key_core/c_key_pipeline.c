@@ -51,6 +51,15 @@ static bool config_is_valid(const c_key_pipeline_config_t *config)
             return false;
         }
     }
+
+    float calibrated_zero = 0.0f;
+    if (!c_key_angle_calibrate_piecewise(
+            0.0f,
+            config->angle_calibration_measured_deg,
+            config->angle_calibration_reference_deg,
+            &calibrated_zero)) {
+        return false;
+    }
     return true;
 }
 
@@ -232,8 +241,15 @@ bool c_key_pipeline_process_pdoa(c_key_pipeline_t *pipeline,
     const float corrected_distance_m =
         input->distance_m * pipeline->config.distance_scale_factors[0] +
         pipeline->config.distance_offsets_m[0];
-    const float corrected_angle_deg =
+    const float offset_angle_deg =
         input->angle_deg - pipeline->config.front_angle_offset_deg;
+    float corrected_angle_deg = 0.0f;
+    const bool angle_calibration_valid =
+        c_key_angle_calibrate_piecewise(
+            offset_angle_deg,
+            pipeline->config.angle_calibration_measured_deg,
+            pipeline->config.angle_calibration_reference_deg,
+            &corrected_angle_deg);
     output->corrected_distances_m[0] = corrected_distance_m;
 
     const bool new_sample =
@@ -245,6 +261,7 @@ bool c_key_pipeline_process_pdoa(c_key_pipeline_t *pipeline,
         isfinite(corrected_distance_m) &&
         corrected_distance_m >= pipeline->config.minimum_distance_m &&
         corrected_distance_m <= pipeline->config.maximum_distance_m &&
+        angle_calibration_valid &&
         isfinite(corrected_angle_deg) &&
         fabsf(corrected_angle_deg) <= 180.0f;
     bool sample_valid = raw_sample_valid && pipeline->filter_valid[0];

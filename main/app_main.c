@@ -73,6 +73,15 @@ static c_key_pipeline_config_t make_pipeline_config(void)
         .door_center = {0.0f, 0.0f},
         .door_radius_m = (float)CONFIG_C_KEY_DOOR_RADIUS_MM * 0.001f,
         .front_angle_offset_deg = (float)CONFIG_C_KEY_FRONT_OFFSET_DEG,
+        .angle_calibration_measured_deg = {
+            (float)CONFIG_C_KEY_ANGLE_CAL_RAW_NEG45_TENTHS * 0.1f,
+            (float)CONFIG_C_KEY_ANGLE_CAL_RAW_NEG30_TENTHS * 0.1f,
+            (float)CONFIG_C_KEY_ANGLE_CAL_RAW_NEG15_TENTHS * 0.1f,
+            0.0f, 15.0f, 30.0f, 45.0f,
+        },
+        .angle_calibration_reference_deg = {
+            -45.0f, -30.0f, -15.0f, 0.0f, 15.0f, 30.0f, 45.0f,
+        },
         .filter_alpha = (float)CONFIG_C_KEY_FILTER_ALPHA_PERCENT * 0.01f,
         .angle_one_euro_min_cutoff_hz =
             (float)CONFIG_C_KEY_ANGLE_ONE_EURO_MIN_CUTOFF_CENTIHZ * 0.01f,

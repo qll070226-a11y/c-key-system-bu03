@@ -12,6 +12,7 @@ extern "C" {
 #define C_KEY_ANCHOR_COUNT 2U
 #define C_KEY_FILTER_WINDOW 5U
 #define C_KEY_ANGLE_HAMPEL_WINDOW 7U
+#define C_KEY_ANGLE_CALIBRATION_POINTS 7U
 
 typedef struct {
     float x_m;
@@ -130,6 +131,12 @@ bool c_key_measurements_ready(const c_key_anchor_measurement_t anchors[C_KEY_ANC
                               uint32_t now_ms,
                               uint32_t max_age_ms,
                               uint32_t max_skew_ms);
+
+bool c_key_angle_calibrate_piecewise(
+    float raw_angle_deg,
+    const float measured_angles_deg[C_KEY_ANGLE_CALIBRATION_POINTS],
+    const float reference_angles_deg[C_KEY_ANGLE_CALIBRATION_POINTS],
+    float *calibrated_angle_deg);
 
 void c_key_distance_filter_init(c_key_distance_filter_t *filter, float alpha);
 

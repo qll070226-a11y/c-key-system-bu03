@@ -141,6 +141,9 @@ TFT人工确认显示钥匙ID、门锁ID和“匹配成功”。
 接手开发先阅读 [HANDOFF.md](HANDOFF.md) 和
 [标定与验收](docs/CALIBRATION_AND_ACCEPTANCE.md)。
 
+桌面归档“完赛2版”的固定参数和实测结果见
+[完赛2版说明](docs/FINAL_V2_RELEASE.md)。
+
 协议实现与实测帧见 [BU04 PDOA协议](docs/BU04_PDOA_PROTOCOL.md)。
 
 题目第1项的3米一键启动与持续ID通信使用

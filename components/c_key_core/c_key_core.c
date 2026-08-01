@@ -176,6 +176,60 @@ bool c_key_measurements_ready(const c_key_anchor_measurement_t anchors[C_KEY_ANC
     return maximum_age - minimum_age <= max_skew_ms;
 }
 
+bool c_key_angle_calibrate_piecewise(
+    float raw_angle_deg,
+    const float measured_angles_deg[C_KEY_ANGLE_CALIBRATION_POINTS],
+    const float reference_angles_deg[C_KEY_ANGLE_CALIBRATION_POINTS],
+    float *calibrated_angle_deg)
+{
+    if (!isfinite(raw_angle_deg) || measured_angles_deg == NULL ||
+        reference_angles_deg == NULL || calibrated_angle_deg == NULL) {
+        return false;
+    }
+
+    for (size_t i = 0; i < C_KEY_ANGLE_CALIBRATION_POINTS; ++i) {
+        if (!isfinite(measured_angles_deg[i]) ||
+            !isfinite(reference_angles_deg[i]) ||
+            (i > 0U &&
+             (measured_angles_deg[i] <= measured_angles_deg[i - 1U] ||
+              reference_angles_deg[i] <= reference_angles_deg[i - 1U]))) {
+            return false;
+        }
+    }
+
+    if (raw_angle_deg <= measured_angles_deg[0]) {
+        *calibrated_angle_deg =
+            raw_angle_deg +
+            reference_angles_deg[0] - measured_angles_deg[0];
+        return true;
+    }
+
+    const size_t last = C_KEY_ANGLE_CALIBRATION_POINTS - 1U;
+    if (raw_angle_deg >= measured_angles_deg[last]) {
+        *calibrated_angle_deg =
+            raw_angle_deg +
+            reference_angles_deg[last] - measured_angles_deg[last];
+        return true;
+    }
+
+    for (size_t i = 1U; i < C_KEY_ANGLE_CALIBRATION_POINTS; ++i) {
+        if (raw_angle_deg <= measured_angles_deg[i]) {
+            const float measured_span =
+                measured_angles_deg[i] - measured_angles_deg[i - 1U];
+            const float ratio =
+                (raw_angle_deg - measured_angles_deg[i - 1U]) /
+                measured_span;
+            *calibrated_angle_deg =
+                reference_angles_deg[i - 1U] +
+                ratio *
+                    (reference_angles_deg[i] -
+                     reference_angles_deg[i - 1U]);
+            return isfinite(*calibrated_angle_deg);
+        }
+    }
+    return false;
+}
+
 void c_key_distance_filter_init(c_key_distance_filter_t *filter, float alpha)
 {
     if (filter == NULL) {
