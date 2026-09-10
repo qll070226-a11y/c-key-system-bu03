@@ -1,151 +1,167 @@
-# C题数字钥匙：BU03标签 + BU04 PDOA门锁
+# 基于 UWB 的数字钥匙实验系统
 
-本工程实现电赛 C 题“基于无线通信的数字钥匙实验系统”。当前主方案使用一块
-BU03-Kit 作为数字钥匙标签，一块 BU04-Kit 作为门锁 PDOA 基站，ESP32-S3
-通过 BU04 UART2 同时取得标签身份、距离和方位角。
+> 全国大学生电子设计竞赛 C 题原型：使用 BU03-Kit 标签、BU04-Kit PDOA 基站和
+> ESP32-S3，实现身份认证、距离/方位测量、区域判定、自动开闭锁与可视化诊断。
 
-旧的“双 BU03 TWR”版本已保存为标签 `twr-direct-range-20260731`。当前完赛主线
-位于分支 `pdoa-one-euro`，冻结标签为 `final-v2-20260801`；负角度校准前版本为
-`final-v1-20260801`。
+[![ESP-IDF](https://img.shields.io/badge/ESP--IDF-5.5.x-E7352C)](https://github.com/espressif/esp-idf)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB)](host/README.md)
+[![CI](https://github.com/qll070226-a11y/c-key-system-bu03/actions/workflows/ci.yml/badge.svg)](https://github.com/qll070226-a11y/c-key-system-bu03/actions/workflows/ci.yml)
+[![Status](https://img.shields.io/badge/status-prototype%20tested-16803A)](docs/CONTEST_ACCEPTANCE_STATUS.md)
 
-## 当前数据链
+![UWB 定位诊断上位机](docs/assets/host-debugger.png)
 
-~~~text
-BU03 Tag（短地址0x6E19）
-    <-------- UWB -------->
-BU04 PDOA Base
-    UART2_TX（31字节Hex帧）
-         -> ESP32-S3 GPIO18
-         -> 标签地址映射为逻辑ID
-         -> 距离/角度校正和滤波
-         -> ID认证、区域状态机
-         -> TFT、LED、蜂鸣器、诊断串口
-~~~
+## 项目概览
 
-门锁使用标签到 BU04 天线中心的距离和 PDOA 角度换算二维坐标。区域判定使用
-标签到门锁圆柱外壳的距离，即中心距离减去 0.30 m。
+本项目围绕“数字钥匙靠近门锁”的完整业务闭环展开。钥匙端持续通过 UWB 发送身份
+ID，门锁端在同一条无线链路中获取标签地址、径向距离和方位角；ESP32-S3 对原始
+测量值进行校准和抗抖处理，再驱动中文 TFT、LED、低电平蜂鸣器及门锁状态。
 
-## 当前端口
+与只展示一组测距数字的演示不同，本系统把通信、解析、滤波、认证、状态机、失效
+保护和测试工具做成了一条可验证的数据链。
 
-端口会随插拔变化，2026-07-31 实测为：
+```mermaid
+flowchart LR
+    A[BU03-Kit 数字钥匙<br/>持续发送标签身份] -->|UWB| B[BU04-Kit PDOA 基站<br/>距离 + 方位角 + 地址]
+    B -->|UART2 115200 bps<br/>31 字节二进制帧| C[ESP32-S3]
+    C --> D[流式解析与校验]
+    D --> E[距离/角度校准与滤波]
+    E --> F[ID 认证与区域状态机]
+    F --> G[中文 TFT]
+    F --> H[LED / 蜂鸣器 / 门锁]
+    C -->|C_KEY_DIAG_V3| I[Python 诊断上位机]
+```
 
-| 设备接口 | 当前端口 | 用途 |
-|---|---:|---|
-| BU04 AT/烧写口 | COM14 | 配置与配对 |
-| BU04 USB测距数据口 | COM25 | PC抓取31字节二进制帧 |
-| ESP32-S3 CH343 COM口 | COM21 | 烧录、日志、上位机 |
+## 核心成果
 
-上位机必须连接 ESP32 诊断串口，不能直接连接 COM25。正式整机由 BU04
-UART2_TX 接 ESP32 GPIO18。
+| 能力 | 实现方式 |
+|---|---|
+| 无线身份认证 | BU03 标签短地址映射为 4 位逻辑钥匙 ID，与门锁拨码 ID 实时比对 |
+| 距离与方位定位 | BU04 PDOA 单基站同步输出距离、角度和标签地址 |
+| 稳健数据处理 | 帧校验与流式重同步；距离中值 + EMA；角度 Hampel + One Euro |
+| 区域业务逻辑 | 感应区、迎宾区、开锁区分层判断，带 5 cm 回差和连续帧确认 |
+| 失效保护 | 数据超时、非法 ID、坏帧或钥匙离线时立即闭锁，上电默认不误开 |
+| 人机交互 | 中文 TFT 显示身份、认证、距离、方位和门锁状态，LED/蜂鸣器同步提示 |
+| 工程验证 | 纯 C 单元测试、Python 测试、串口采集、CSV 回放及自动验收报告 |
 
-## 构建与测试
+## 实测记录
 
-~~~powershell
+以下结果来自仓库内保留的实机报告和串口记录，不是仿真数据。
+
+| 场景 | 实测结果 | 证据 |
+|---|---|---|
+| 3.00 m 持续身份通信 | 15.010 s 内 718 帧，47.83 Hz，最大帧间隔 0.151 s，解析错误 0 | [第 1 项验收报告](reports/requirement_1_20260801_012554.md) |
+| 正前方约 1 m 定位 | 10 s 内 495 帧，校正距离约 1.01 m，方位角约 +1.85° | [比赛验收状态](docs/CONTEST_ACCEPTANCE_STATUS.md) |
+| 标签断电保护 | UWB 数据停止后，系统在 500 ms 超时窗口后进入无钥匙闭锁状态 | [完赛版本说明](docs/FINAL_V2_RELEASE.md) |
+| 角度抗抖对比 | 同组静态数据中，角度标准差由 0.593° 降至 0.414° | [标定与验收](docs/CALIBRATION_AND_ACCEPTANCE.md) |
+
+完整评分项仍按“软件通过”和“实机通过”分别记录，尚未形成统一报告的测点不会标成
+完成，详见[比赛验收状态](docs/CONTEST_ACCEPTANCE_STATUS.md)。
+
+## 关键设计
+
+### 1. 可靠的串口流解析
+
+BU04 输出固定 31 字节二进制帧。解析器不假设每次串口读取恰好得到一整帧，而是在
+字节流中寻找帧头、检查长度与校验和，并在丢字节或噪声后重新同步。这样可处理粘包、
+拆包和坏帧，避免一次通信异常持续污染后续定位。
+
+### 2. 面向动态判决的滤波
+
+- 距离：5 点中值滤波抑制离群点，再以 `alpha = 0.35` 的 EMA 平滑随机波动；
+- 角度：7 点环形 Hampel 剔除突变，再用 One Euro 在静态稳定性和动态响应间折中；
+- 校准：保留零偏与分段修正，当前完赛版针对负角系统误差做了分段补偿；
+- 判决：滤波值只负责估计，状态机额外使用回差和 4 帧确认防止边界反复跳变。
+
+### 3. 安全优先的状态机
+
+区域距离以门锁圆柱外壳为零点，即 `UWB 天线中心距离 - 0.30 m`。开锁、迎宾阈值
+分别采用 `0.95/1.05 m` 与 `1.95/2.05 m` 的进出回差。任何数据超时、身份失配或
+定位无效都会覆盖普通区域逻辑并闭锁。
+
+更多细节见[系统架构与设计取舍](docs/ARCHITECTURE.md)。
+
+## 硬件组成与接线
+
+| 模块 | 作用 | 关键连接 |
+|---|---|---|
+| BU03-Kit | 数字钥匙标签 | 独立电池供电，UWB 持续发送 |
+| BU04-Kit | PDOA 门锁基站 | `UART2_TX -> ESP32 GPIO18`，共地，独立 5 V DCDC |
+| ESP32-S3-N16R8 | 主控制器 | 解析、滤波、认证、状态机和诊断输出 |
+| 2.4 英寸 SPI TFT | 中文状态界面 | **只允许 3.3 V 供电** |
+| 4 位拨码开关 | 设置门锁认可 ID | GPIO 输入并做软件消抖 |
+| LED / 低电平蜂鸣器 | 区域与门锁提示 | 由扩展板和洞洞板连接 |
+
+完整 GPIO、电源分配和射频安装注意事项见[硬件与接线](docs/HARDWARE.md)。
+
+## 快速开始
+
+### 固件
+
+环境要求：Windows、ESP-IDF 5.5.x、已进入 ESP-IDF PowerShell。
+
+```powershell
+# 运行与硬件无关的 C 核心测试
 .\tests\run_host_tests.bat
+
+# 构建 ESP32-S3 固件
 .\build_idf.bat
-~~~
 
-2026-08-02 复测全部 C 核心测试和 Python 上位机14项测试通过。ESP-IDF 5.5.4
-完整构建生成镜像：
-
-~~~text
-build/c_key_door.bin
-大小 0x44280 字节，应用分区剩余 73%
-~~~
-
-烧录时先确认 ESP32 的实际端口：
-
-~~~powershell
+# 将 COMxx 替换为 ESP32 的实际端口
 .\flash_idf.bat COMxx
-~~~
+```
 
-不要将 COM25 作为烧录端口。
+不要把 BU04 的 USB 数据口当作 ESP32 烧录口。端口号会随电脑和插拔顺序变化。
 
-## 上位机
+### 诊断上位机
 
-~~~powershell
+```powershell
 cd host
 .\setup.bat
 .\run.bat
-~~~
+```
 
-上位机读取 C_KEY_DIAG_V3，并兼容旧版 V2，显示：
+上位机连接 ESP32 诊断串口，支持实时曲线、二维轨迹、原始/滤波数据对照、定点采集、
+CSV 记录与回放。详细使用方法见[上位机说明](host/README.md)。
 
-- BU04 原始距离与角度；
-- 首径功率、接收电平和Hampel角度拒绝计数；
-- 校正、滤波后的距离和角度；
-- X/Y、门锁边界距离和区域状态；
-- 标签地址、逻辑ID、拨码ID和帧质量；
-- 定点采集、距离线性标定、角度误差统计、CSV记录与回放。
+### 自动验收
 
-详细说明见 [host/README.md](host/README.md)。
+```powershell
+py -3 tools\verify_static_position.py --help
+py -3 tools\verify_requirement_1.py --help
+```
 
-## 默认接线
+工具可从串口或日志读取 `C_KEY_DIAG_V3`，按距离、角度、帧率和身份条件自动生成
+Markdown/JSON 报告。推荐测点和操作顺序见[标定与验收](docs/CALIBRATION_AND_ACCEPTANCE.md)。
 
-~~~text
-BU04 UART2_TX（Kit排针4） -> ESP32 GPIO18
-BU04 GND                  -> ESP32 GND
-BU04 5V                   -> 独立5V DCDC
-~~~
+## 仓库结构
 
-ESP32 只接收 BU04 数据，UART TX 默认禁用。TFT 只能使用 3.3V 供电。完整 GPIO、
-电源和射频布局见 [硬件与接线](docs/HARDWARE.md)。
+```text
+components/           ESP-IDF 组件：核心算法、I/O、TFT、UWB 接口
+main/                 固件入口与任务编排
+host/                 Python/Qt 诊断上位机及其测试
+tests/                可在 PC 上运行的纯 C 单元与场景测试
+tools/                配置备份、串口采集、标定和自动验收工具
+docs/                 架构、协议、硬件、标定与交接文档
+reports/              已完成的实机验收报告
+backups/              BU03/BU04 AT 配置快照
+```
 
-## 配置
+## 文档导航
 
-menuconfig 路径：
+- [系统架构与设计取舍](docs/ARCHITECTURE.md)
+- [硬件与接线](docs/HARDWARE.md)
+- [BU04 PDOA 帧协议](docs/BU04_PDOA_PROTOCOL.md)
+- [标定与验收](docs/CALIBRATION_AND_ACCEPTANCE.md)
+- [比赛评分项状态](docs/CONTEST_ACCEPTANCE_STATUS.md)
+- [完赛 2 版参数](docs/FINAL_V2_RELEASE.md)
+- [开发交接](HANDOFF.md)
 
-~~~text
-Component config
-  -> C题 BU04 PDOA数字钥匙
-~~~
+## 版本说明
 
-关键默认值：
+当前完整方案已合入 `main`，开发过程保留在 `pdoa-one-euro`；冻结版本为
+`final-v2-20260801`，校准前版本为 `final-v1-20260801`。旧的双 BU03 TWR
+方案保留在 `twr-direct-range-20260731`，便于对照和回退。
 
-~~~text
-BU04 UART RX GPIO = 18
-BU04 baud = 115200
-标签短地址 = 0x6E19
-逻辑钥匙ID = 0
-门锁半径 = 300 mm
-距离 scale = 1000000 ppm
-距离 offset = 0 mm
-角度零偏 = 0 deg
-~~~
-
-## 验证状态
-
-已完成：
-
-- BU03 标签与 BU04 基站配对；
-- BU04 Hex 输出和真实 COM25 帧解析；
-- 标签地址、距离、角度、校验和及流式重同步；
-- PDOA 距离/角度到定位、认证和状态机的软件链；
-- 中文 TFT、拨码、LED、低电平蜂鸣器既有驱动集成；
-- C 核心测试、Python 上位机14项测试、ESP32完整构建。
-
-待完成的是正式实机证据闭环：1/2/3m距离、0/正负30/正负45度、迎宾与开锁
-双向边界、实物拨码ID、最终供电装箱和30分钟老化。逐项状态和测试顺序见
-[比赛验收状态](docs/CONTEST_ACCEPTANCE_STATUS.md)。
-
-2026-08-01实机联调：COM21烧录和SHA校验成功；BU04 UART2接入后8秒收到356条
-C_KEY_DIAG_V2，解析错误0，标签地址、距离、角度、坐标和状态机均有效。
-
-题目第1项已完成3.00m一键启动专项验收：15.010秒收到718条连续ID帧，地址
-0x6E19、钥匙ID/门锁ID均为0000，平均47.83Hz、最大间断0.151秒、解析错误0，
-TFT人工确认显示钥匙ID、门锁ID和“匹配成功”。
-
-抗抖版本实机验收：标签放在两基站正前方约1m处，10秒收到495条有效诊断帧，
-解析错误0；校正距离约1.01m、方位角约+1.85度、定位有效，状态稳定为UNLOCKED。
-关闭标签后UWB数据流停止，TFT、门锁和指示灯均确认自动进入无钥匙闭锁状态。
-
-接手开发先阅读 [HANDOFF.md](HANDOFF.md) 和
-[标定与验收](docs/CALIBRATION_AND_ACCEPTANCE.md)。
-
-桌面归档“完赛2版”的固定参数和实测结果见
-[完赛2版说明](docs/FINAL_V2_RELEASE.md)。
-
-协议实现与实测帧见 [BU04 PDOA协议](docs/BU04_PDOA_PROTOCOL.md)。
-
-题目第1项的3米一键启动与持续ID通信使用
-[专项验收步骤](docs/REQUIREMENT_1_ACCEPTANCE.md)。
+本仓库是竞赛实验原型，重点验证 UWB 定位与数字钥匙业务闭环，并非量产车载安全
+产品。当前身份机制是标签地址到逻辑 ID 的映射，不包含量产数字钥匙所需的安全芯片、
+双向挑战应答、密钥轮换和抗中继攻击设计。

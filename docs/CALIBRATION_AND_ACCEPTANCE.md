@@ -44,6 +44,33 @@ sqrt(X² + Y² + (标签高度 - 基站高度)²)
 
 固件当前不做高度分解，实时判区直接使用 BU04 空间距离。
 
+正式验收不要只看上位机曲线。摆好测点并人工确认TFT后，关闭GUI避免占用串口，
+运行静态验收工具：
+
+~~~powershell
+.\host\.venv\Scripts\python.exe tools\verify_static_position.py COM21 `
+  --boundary-distance-m 1.0 --angle-deg 0 --display-confirmed
+~~~
+
+`--boundary-distance-m`必须填写标签定位点到门锁60cm圆柱边界的卷尺距离，不能填
+到BU04天线中心的距离。工具会跳过启动预热，至少采集300帧，检查身份、定位有效率、
+帧率、断流、距离误差、角度误差和TFT确认，并在`reports/static/`生成JSON和Markdown。
+
+建议依次执行：
+
+~~~powershell
+# 0度方向距离验收
+.\host\.venv\Scripts\python.exe tools\verify_static_position.py COM21 --boundary-distance-m 1.0 --angle-deg 0 --display-confirmed
+.\host\.venv\Scripts\python.exe tools\verify_static_position.py COM21 --boundary-distance-m 2.0 --angle-deg 0 --display-confirmed
+.\host\.venv\Scripts\python.exe tools\verify_static_position.py COM21 --boundary-distance-m 3.0 --angle-deg 0 --display-confirmed --expected-state SENSING
+
+# 2m处角度验收，另外重复angle-deg 30、-30、45、-45
+.\host\.venv\Scripts\python.exe tools\verify_static_position.py COM21 --boundary-distance-m 2.0 --angle-deg 0 --display-confirmed
+~~~
+
+1m和2m正好位于区域边界，受进出方向与滞回影响，静态定位报告不强制指定状态；
+区域判决必须在后续动态进出测试中单独验收。
+
 ## 4. 距离标定
 
 先在0度中心线采集1m、1.5m、2m、3m，至少使用三个不同距离。点击“计算标定”
@@ -110,3 +137,4 @@ CONFIG_C_KEY_FRONT_OFFSET_DEG=<BU04读数在真实0度时的中位数>
 - [ ] 连续运行30分钟，无复位、花屏、异常发热或持续丢帧。
 
 每轮验收保存日期、固件 Git 提交、sdkconfig、机械布局照片和上位机 CSV。
+静态点同时保存`tools/verify_static_position.py`生成的JSON和Markdown报告。

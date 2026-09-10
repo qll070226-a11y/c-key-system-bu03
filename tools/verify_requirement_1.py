@@ -9,9 +9,6 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 
-import serial
-
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'host'))
 
@@ -131,6 +128,8 @@ def main() -> int:
         parser.error('第1项要求通信距离不小于3m，卷尺距离必须至少3.0m')
     if not 0 <= args.expected_id <= 15:
         parser.error('逻辑ID必须在0到15之间')
+
+    import serial
 
     print('串口已打开后，请在12秒内拨动数字钥匙开关启动。', flush=True)
     started = time.monotonic()
